@@ -319,7 +319,7 @@ export class XJog extends XJogLogEmitter {
 
     if (!chartIdentifier) {
       this.trace({ in: 'verifyChart', ref }, 'Failed to parse reference');
-      return null;
+      return false;
     }
 
     const machine = this.getMachine<TContext, TStateSchema, TEvent, TTypeState>(
