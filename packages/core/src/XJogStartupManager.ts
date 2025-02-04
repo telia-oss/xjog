@@ -213,6 +213,11 @@ export class XJogStartupManager {
     refs: ChartReference[],
     cid = getCorrelationIdentifier(),
   ): Promise<void> {
+    const skipOnRehydrate =
+      this.xJog.options.startup.skipRunningActionsOnRehydrate;
+    if (skipOnRehydrate) {
+      return;
+    }
     for (const ref of refs) {
       const adoptedChart = await this.xJog.getChart(ref, cid);
       await adoptedChart?.runStep(cid);

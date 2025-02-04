@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-core-persistence",
-  "version": "0.0.37",
+  "version": "0.0.38",
   "description": "XJog chart abstract persistence",
   "engines": {
     "npm": ">=8.19.4",
@@ -29,7 +29,7 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-util": "^0.0.32",
+    "@samihult/xjog-util": "^0.0.33",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
