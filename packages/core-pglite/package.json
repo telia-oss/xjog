@@ -1,0 +1,33 @@
+{
+  "name": "core-pglite",
+  "version": "0.1.0",
+  "description": "Lightweight PG adapter",
+  "keywords": [
+    "pg"
+  ],
+  "author": "Juha Mustonen <juha.mustonen@iki.fi>",
+  "homepage": "",
+  "license": "MIT",
+  "main": "lib/core-pglite.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "files": [
+    "lib"
+  ],
+  "publishConfig": {
+    "registry": "https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-repo-virtual/"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.5"
+  },
+  "devDependencies": {
+    "jest": "^28.1.2",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.7.4"
+  }
+}
