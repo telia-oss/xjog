@@ -31,6 +31,7 @@ import { XJogDeferredEventManager } from './XJogDeferredEventManager';
 import { XJogActivityManager } from './XJogActivityManager';
 import { XJogMachineOptions } from './XJogMachineOptions';
 import { XJogStartupManager } from './XJogStartupManager';
+import { XJogSimulator } from './XJogSimulator';
 import { XJogMachine } from './XJogMachine';
 import { XJogChart } from './XJogChart';
 
@@ -112,6 +113,12 @@ export class XJog extends XJogLogEmitter {
   public readonly deferredEventManager: XJogDeferredEventManager;
 
   /**
+   * Small extension to XJog that allows simulating events and errors.
+   * @private
+   */
+  public readonly simulator: XJogSimulator;
+
+  /**
    * Activity manager that manages invoked activities.
    * Read access is required for other classes.
    * @private
@@ -131,6 +138,7 @@ export class XJog extends XJogLogEmitter {
     this.startupManager = new XJogStartupManager(this);
     this.deferredEventManager = new XJogDeferredEventManager(this);
     this.activityManager = new XJogActivityManager(this);
+    this.simulator = new XJogSimulator(this);
 
     this.trace('Instance created', {
       instanceId: this.id,
