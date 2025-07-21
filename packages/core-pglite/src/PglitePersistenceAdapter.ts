@@ -1,9 +1,4 @@
-import {
-  PGlite,
-  PGliteOptions,
-  Results,
-  Transaction,
-} from '@electric-sql/pglite';
+import { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
 import migrationRunner from 'node-pg-migrate';
 import path from 'path';
 
@@ -63,9 +58,9 @@ type PgliteDeferredEventRow = {
 };
 
 /**
- * Use the static method [connect]{@link PostgresPersistenceAdapter.connect} to
+ * Use the static method [connect]{@link PglitePersistenceAdapter.connect} to
  * create an instance of this {@link PersistenceAdapter PersistenceAdapter} for
- * [PostgreSql](https://www.postgresql.org/).
+ * [Pglite](https://github.com/electric-sql/pglite).
  *
  * @group Persistence
  * @extends PersistenceAdapter
@@ -92,8 +87,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
    * regular database adapter. Let one resolve (e.g. `await`) before calling another.
    */
   static async connect(
-    poolConfiguration: PGliteOptions,
-    // TODO resolve
+    poolConfiguration: PGliteOptions = {},
     options: Partial<PglitePersistenceAdapterOptions> = {},
   ): Promise<PglitePersistenceAdapter> {
     // TODO pass logging to the pool
@@ -102,15 +96,18 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
 
     let migrationClient;
     try {
+      // NOTE: Pglite does not allow running multiple queries with query but exec should be used
+      // and migration runner uses query.
       await migrationRunner({
         dbClient: pool as any,
         migrationsTable: 'migrations_xjog',
+        singleTransaction: true,
         dir: path.join(__dirname, './migrations'),
         direction: 'up',
         log: (message) => adapter.trace({ in: 'connect', message }),
         // https://github.com/salsita/node-pg-migrate/issues/821,
         checkOrder: false,
-        noLock: true,
+        noLock: false,
       });
     } finally {
       if (migrationClient) {

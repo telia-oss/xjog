@@ -6,9 +6,7 @@ describe('PglitePersistenceAdapter', () => {
   });
 
   it('should be able to connect to a database', async () => {
-    const adapter = await PglitePersistenceAdapter.connect({
-      dataDir: 'test.db',
-    });
+    const adapter = await PglitePersistenceAdapter.connect();
     expect(adapter).toBeDefined();
   });
 });
