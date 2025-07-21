@@ -1,19 +1,20 @@
 {
-  "name": "core-pglite",
+  "name": "@samihult/xjog-core-pglite",
   "version": "0.1.0",
   "description": "Lightweight PG adapter",
   "keywords": [
     "pg"
   ],
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
+  "private": false,
   "homepage": "",
   "license": "MIT",
-  "main": "lib/core-pglite.js",
+  "main": "lib",
   "directories": {
     "lib": "lib"
   },
   "files": [
-    "lib"
+    "lib/**/*"
   ],
   "publishConfig": {
     "registry": "https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-repo-virtual/"

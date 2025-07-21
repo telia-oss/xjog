@@ -374,7 +374,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     const result = await connection.query(
       bind(
         'SELECT 1 FROM "charts" ' +
-        'WHERE "machineId" = :machineId AND "chartId" = :chartId',
+          'WHERE "machineId" = :machineId AND "chartId" = :chartId',
         {
           machineId: ref.machineId,
           chartId: ref.chartId,

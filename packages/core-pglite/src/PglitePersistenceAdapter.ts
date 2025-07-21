@@ -102,7 +102,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         dbClient: pool as any,
         migrationsTable: 'migrations_xjog',
         singleTransaction: true,
-        dir: path.join(__dirname, './migrations'),
+        dir: path.join(__dirname, '..', 'migrations'),
         direction: 'up',
         log: (message) => adapter.trace({ in: 'connect', message }),
         // https://github.com/salsita/node-pg-migrate/issues/821,
@@ -133,21 +133,22 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     routine: (client: PGlite) => Promise<ReturnType> | ReturnType,
     transactionConnectionForNesting?: Transaction,
   ): Promise<ReturnType> {
-    const client = await this.pool.transaction(async (tx: Transaction) => {
-      return tx;
-    });
-    await client.query('BEGIN');
+    return await this.pool.transaction(async (tx: Transaction) => {
+      await tx.query('BEGIN');
+      let returnValue: ReturnType;
 
-    try {
-      const returnValue = await routine(client as unknown as PGlite);
-      await client.query('COMMIT');
+      try {
+        returnValue = await routine(tx as unknown as PGlite);
+        await tx.query('COMMIT');
+      } catch (error) {
+        await tx.query('ROLLBACK');
+        throw error;
+      } finally {
+        await tx.rollback();
+      }
+
       return returnValue;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      await client.rollback();
-    }
+    });
   }
 
   public async countAliveInstances(
