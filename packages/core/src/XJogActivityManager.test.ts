@@ -3,7 +3,7 @@ import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 import { XJogActivityManager } from './XJogActivityManager';
 import { ActivityRef } from '@samihult/xjog-util';
 import { XJog } from './XJog';
-import { PglitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 
 function mockXJogWithActivityManager(
   persistence: PersistenceAdapter,
@@ -43,7 +43,7 @@ function mockActivity(): [ActivityRef, () => void] {
 
 describe('XJogActivityManager', () => {
   it('Can register and unregister activities', async () => {
-    const persistence = await PglitePersistenceAdapter.connect();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity] = mockActivity();
@@ -78,7 +78,7 @@ describe('XJogActivityManager', () => {
   });
 
   it('Can relay events to activities', async () => {
-    const persistence = await PglitePersistenceAdapter.connect();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity] = mockActivity();

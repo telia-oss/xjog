@@ -1,17 +1,17 @@
-import { PglitePersistenceAdapter } from './PglitePersistenceAdapter';
+import { PGlitePersistenceAdapter } from './PGlitePersistenceAdapter';
 
 describe('PglitePersistenceAdapter', () => {
   it('should be defined', () => {
-    expect(PglitePersistenceAdapter).toBeDefined();
+    expect(PGlitePersistenceAdapter).toBeDefined();
   });
 
   it('should be able to connect to a database', async () => {
-    const adapter = await PglitePersistenceAdapter.connect();
+    const adapter = await PGlitePersistenceAdapter.connect();
     expect(adapter).toBeDefined();
   });
 
   it('should run migrations', async () => {
-    const adapter = await PglitePersistenceAdapter.connect({
+    const adapter = await PGlitePersistenceAdapter.connect({
       dataDir: 'test.db',
     });
     expect(adapter).toBeDefined();

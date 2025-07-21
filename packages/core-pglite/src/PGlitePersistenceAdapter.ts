@@ -25,12 +25,12 @@ import {
 /**
  * Options for instantiating {@link PostgresPersistenceAdapter}.
  */
-export type PglitePersistenceAdapterOptions = Record<string, never>;
+export type PGlitePersistenceAdapterOptions = Record<string, never>;
 
 /**
  * Chart row directly from the SQL query
  */
-type PgliteChartRow = {
+type PGliteChartRow = {
   timestamp: number;
   ownerId: string;
   machineId: string;
@@ -44,7 +44,7 @@ type PgliteChartRow = {
 /**
  * Deferred event row directly from the SQL query
  */
-type PgliteDeferredEventRow = {
+type PGliteDeferredEventRow = {
   id: number;
   machineId: string;
   chartId: string;
@@ -58,7 +58,7 @@ type PgliteDeferredEventRow = {
 };
 
 /**
- * Use the static method [connect]{@link PglitePersistenceAdapter.connect} to
+ * Use the static method [connect]{@link PGlitePersistenceAdapter.connect} to
  * create an instance of this {@link PersistenceAdapter PersistenceAdapter} for
  * [Pglite](https://github.com/electric-sql/pglite).
  *
@@ -66,7 +66,7 @@ type PgliteDeferredEventRow = {
  * @extends PersistenceAdapter
  * @hideconstructor
  */
-export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
+export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   public readonly component = 'persistence';
   public readonly type = 'pg';
 
@@ -88,13 +88,12 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
    */
   static async connect(
     poolConfiguration: PGliteOptions = {},
-    options: Partial<PglitePersistenceAdapterOptions> = {},
-  ): Promise<PglitePersistenceAdapter> {
+    options: Partial<PGlitePersistenceAdapterOptions> = {},
+  ): Promise<PGlitePersistenceAdapter> {
     // TODO pass logging to the pool
     const pool = await PGlite.create(poolConfiguration);
-    const adapter = new PglitePersistenceAdapter(pool, poolConfiguration);
+    const adapter = new PGlitePersistenceAdapter(pool, poolConfiguration);
 
-    let migrationClient;
     try {
       // NOTE: Pglite does not allow running multiple queries with query but exec should be used
       // and migration runner uses query.
@@ -109,10 +108,9 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         checkOrder: false,
         noLock: false,
       });
-    } finally {
-      if (migrationClient) {
-        await (migrationClient as PGlite).close();
-      }
+    } catch (error) {
+      await pool.close();
+      throw error;
     }
 
     return adapter;
@@ -372,7 +370,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     ref: ChartReference,
     connection: PGlite = this.pool,
   ): Promise<PersistedChart<TContext, TEvent> | null> {
-    const result = await connection.query<PgliteChartRow>(
+    const result = await connection.query<PGliteChartRow>(
       'SELECT * FROM "charts" ' + 'WHERE "machineId" = $1 AND "chartId" = $2 ',
       [ref.machineId, ref.chartId],
     );
@@ -381,7 +379,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       return null;
     }
 
-    return PglitePersistenceAdapter.parseSqlChartRow<TContext, TEvent>(
+    return PGlitePersistenceAdapter.parseSqlChartRow<TContext, TEvent>(
       result.rows[0],
     );
   }
@@ -602,7 +600,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     id: number,
     connection: PGlite = this.pool,
   ): Promise<PersistedDeferredEvent | null> {
-    const result = await connection.query<PgliteDeferredEventRow>(
+    const result = await connection.query<PGliteDeferredEventRow>(
       'SELECT ' +
         this.deferredEventSelectFields +
         'FROM "deferredEvents" ' +
@@ -615,7 +613,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       return null;
     }
 
-    return PglitePersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
+    return PGlitePersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
   }
 
   /**
@@ -632,7 +630,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     batchSize: number,
     connection: PGlite = this.pool,
   ): Promise<PersistedDeferredEvent[]> {
-    const result = await connection.query<PgliteDeferredEventRow>(
+    const result = await connection.query<PGliteDeferredEventRow>(
       'WITH updated AS ( ' +
         '  UPDATE "deferredEvents" ' +
         '  SET "lock"=$3 ' +
@@ -653,7 +651,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       [lookAhead, batchSize, instanceId],
     );
 
-    return result.rows.map(PglitePersistenceAdapter.parseSqlDeferredEventRow);
+    return result.rows.map(PGlitePersistenceAdapter.parseSqlDeferredEventRow);
   }
 
   // protected async markDeferredEventBatchForProcessing(
@@ -726,7 +724,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       }
     }
 
-    const result = await connection.query<PgliteDeferredEventRow>(
+    const result = await connection.query<PGliteDeferredEventRow>(
       'INSERT INTO "deferredEvents" (' +
         '  "machineId", "chartId", ' +
         '  "eventId", "eventTo", "event", ' +
@@ -754,8 +752,8 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       return null;
     }
 
-    return PglitePersistenceAdapter.parseSqlDeferredEventRow(
-      result.rows[0] as PgliteDeferredEventRow,
+    return PGlitePersistenceAdapter.parseSqlDeferredEventRow(
+      result.rows[0] as PGliteDeferredEventRow,
     );
   }
 
@@ -772,7 +770,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   }
 
   private static parseSqlChartRow<TContext, TEvent extends EventObject>(
-    row: PgliteChartRow,
+    row: PGliteChartRow,
   ): PersistedChart<TContext, TEvent> {
     return {
       timestamp: Number(row.timestamp),
@@ -796,7 +794,7 @@ export class PglitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   }
 
   private static parseSqlDeferredEventRow(
-    row: PgliteDeferredEventRow,
+    row: PGliteDeferredEventRow,
   ): PersistedDeferredEvent {
     return {
       id: row.id,

@@ -1,4 +1,4 @@
-import { PglitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 
 import { XJog } from './XJog';
@@ -28,7 +28,7 @@ function mockXJogWithStartupManager(
 
 describe('XJogStartupManager', () => {
   it('Is initially idle, not started and not finished', async () => {
-    const persistence = await PglitePersistenceAdapter.connect();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     expect(startupManager.started).toBe(false);
@@ -36,7 +36,7 @@ describe('XJogStartupManager', () => {
   });
 
   it('Become ready right after the startup sequence when nothing to adopt', async () => {
-    const persistence = await PglitePersistenceAdapter.connect();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     await startupManager.start();
@@ -46,7 +46,7 @@ describe('XJogStartupManager', () => {
   });
 
   it('Executes the right routines during the startup', async () => {
-    const persistence = await PglitePersistenceAdapter.connect();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     jest.spyOn(persistence, 'overthrowOtherInstances');
