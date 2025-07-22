@@ -68,4 +68,22 @@ describe('XJogSimulator', () => {
     simulator.removeRule({ eventName: 'test' });
     expect(simulator.matchesRule(testRule)).toBeNull();
   });
+
+  it('should remove multiple rules', async () => {
+    const testRule1: SimulatorRule = {
+      eventName: 'test1',
+      action: 'block',
+    };
+    const testRule2: SimulatorRule = {
+      eventName: 'test2',
+      action: 'block',
+    };
+
+    simulator.addRule(testRule1);
+    simulator.addRule(testRule2);
+
+    expect(simulator.matchesRule({ action: 'block' })).toEqual(testRule1);
+    simulator.removeRule({ action: 'block' });
+    expect(simulator.matchesRule({ action: 'block' })).toBeNull();
+  });
 });

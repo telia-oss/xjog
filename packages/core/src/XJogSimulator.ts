@@ -43,10 +43,12 @@ export class XJogSimulator {
     this.rules.push(rule);
   }
 
-  public removeRule(rule: Partial<SimulatorRule>) {
-    const matchingRule = this.matchesRule(rule);
+  public removeRule(matcher: Partial<SimulatorRule>) {
+    const matchingRule = this.matchesRule(matcher);
     if (matchingRule) {
       this.rules.splice(this.rules.indexOf(matchingRule), 1);
+      // Remove all rules that match the same matcher
+      this.removeRule(matcher);
     }
   }
 
