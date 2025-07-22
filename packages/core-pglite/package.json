@@ -16,14 +16,13 @@
   "files": [
     "lib/**/*"
   ],
-  "publishConfig": {
-    "registry": "https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-repo-virtual/"
-  },
   "scripts": {
     "build": "tsc",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "clean": "rm -rf node_modules lib",
+    "format": "prettier --write 'src/**/*.ts'",
     "lint": "eslint src/**/*.ts && prettier --check src",
-    "format": "prettier --write 'src/**/*.ts'"
+    "prePublishOnly": "yarn build",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",
