@@ -17,6 +17,12 @@ export type XJogOptions = {
     adoptionFrequency?: number;
     /** How long to wait until forcibly adopt old instance's charts. */
     gracePeriod?: number;
+    /**
+     * If set to true, XJog will not run actions when rehydrating. If set to
+     * false then only init actions are not run.
+     * Defaults to false.
+     */
+    skipRunningActionsOnRehydrate?: boolean;
   };
   deferredEvents?: {
     /** Number of deferred events to process at a time */
@@ -42,6 +48,7 @@ export type ResolvedXJogOptions = {
   startup: {
     adoptionFrequency: number;
     gracePeriod: number;
+    skipRunningActionsOnRehydrate: boolean;
   };
   deferredEvents: {
     batchSize: number;
@@ -102,9 +109,13 @@ export function resolveXJogStartupOptions(
     trace,
   );
 
+  const skipRunningActionsOnRehydrate =
+    options?.skipRunningActionsOnRehydrate ?? false;
+
   return {
     adoptionFrequency,
     gracePeriod,
+    skipRunningActionsOnRehydrate,
   };
 }
 
