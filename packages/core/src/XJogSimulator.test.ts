@@ -86,4 +86,42 @@ describe('XJogSimulator', () => {
     simulator.removeRule({ action: 'block' });
     expect(simulator.matchesRule({ action: 'block' })).toBeNull();
   });
+
+  it('should remove all rules', async () => {
+    const testRule: SimulatorRule = {
+      eventName: 'test',
+      action: 'block',
+    };
+
+    simulator.addRule(testRule);
+    expect(simulator.matchesRule({ eventName: 'test' })).toEqual(testRule);
+
+    simulator.removeRule();
+    expect(simulator.matchesRule({ eventName: 'test' })).toBeNull();
+  });
+
+  it('should match rules with percentage', async () => {
+    // 100% chance of matching
+    const matchingRule: SimulatorRule = {
+      eventName: 'test',
+      action: 'block',
+      percentage: 100,
+    };
+    // 0% chance of matching
+    const notMatchingRule: SimulatorRule = {
+      eventName: 'test',
+      action: 'block',
+      percentage: 0,
+    };
+
+    // Remove old rule and add new one
+    simulator.removeRule();
+    simulator.addRule(matchingRule);
+    expect(simulator.matchesRule({ eventName: 'test' })).toEqual(matchingRule);
+
+    // Remove old rule and add new one
+    simulator.removeRule();
+    simulator.addRule(notMatchingRule);
+    expect(simulator.matchesRule({ eventName: 'test' })).toBeNull();
+  });
 });

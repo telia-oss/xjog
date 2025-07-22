@@ -1,9 +1,12 @@
 import { XJog } from './XJog';
 
+export type SimulatorAction = 'block' | 'fail' | 'delay';
+
 export type SimulatorRule = {
   eventName: string;
-  action: 'block' | 'fail' | 'delay';
+  action: SimulatorAction;
   value?: string;
+  percentage?: number; // 0-100
 };
 
 /**
@@ -19,10 +22,11 @@ export type SimulatorRule = {
  *
  * // Add a rule to block the event 'foo'
  * // Other actions are 'fail' and 'delay'
- * simulator.addRule({ eventName: 'foo', action: 'block' });
+ * // You can also set a percentage (0-100) to the rule to control the likelihood of the rule being matched
+ * simulator.addRule({ eventName: 'foo', action: 'block', percentage: 50 });
  *
  * // Send events
- * await xJog.sendEvent('foo'); // Event is blocked
+ * await xJog.sendEvent('foo'); // Event is blocked 50% of the time
  * await xJog.sendEvent('bar'); // Event is not blocked
  *
  * // Remove the rule
@@ -43,7 +47,13 @@ export class XJogSimulator {
     this.rules.push(rule);
   }
 
-  public removeRule(matcher: Partial<SimulatorRule>) {
+  public removeRule(matcher?: Partial<SimulatorRule>) {
+    // If no matcher is provided, remove all rules
+    if (!matcher) {
+      this.rules = [];
+      return;
+    }
+
     const matchingRule = this.matchesRule(matcher);
     if (matchingRule) {
       this.rules.splice(this.rules.indexOf(matchingRule), 1);
@@ -69,6 +79,13 @@ export class XJogSimulator {
       return null;
     }
 
-    return matchingRule;
+    // Take the percentage into account
+    // Bigger then number means more likely the rule will be matched
+    const givenPercentage = matchingRule.percentage ?? 100;
+    const randomPercentage = Math.random() * 100;
+    if (randomPercentage < givenPercentage) {
+      return matchingRule;
+    }
+    return null;
   }
 }

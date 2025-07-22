@@ -68,6 +68,7 @@ import {
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
 } from './resolveXJogStateChange';
+import { SimulatorAction } from './XJogSimulator';
 
 export type XJogSendAction<
   TContext = any,
@@ -518,13 +519,13 @@ export class XJogChart<
       // Dev only: If a simulation rule matches, ignore the event
       if (this.xJog.simulator.isEnabled()) {
         const eventName = scxmlEvent.name;
-        const getMatchingRule = (action: 'block' | 'fail' | 'delay') => {
+        const getMatchingRule = (action: SimulatorAction) => {
           const rule = this.xJog.simulator.matchesRule({ eventName, action });
           if (rule) {
             trace({
               message: `Matched simulation rule, will ${action} event`,
               eventName,
-              action,
+              rule,
             });
             return rule;
           }
@@ -550,7 +551,7 @@ export class XJogChart<
           });
           const delay = parseInt(getMatchingRule('delay')?.value ?? '0');
           if (!isNaN(delay)) {
-            await new Promise((resolve) => setTimeout(resolve, delay * 1000));
+            await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
       }
