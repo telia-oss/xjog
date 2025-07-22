@@ -21,14 +21,24 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "lint": "eslint src/**/*.ts && prettier --check src",
+    "format": "prettier --write 'src/**/*.ts'"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5"
   },
   "devDependencies": {
+    "@swc/cli": "^0.1.57",
+    "@swc/core": "^1.2.223",
+    "@swc/jest": "^0.2.22",
+    "@types/node": "^16.7.10",
+    "@types/jest": "^27.0.1",
     "jest": "^28.1.2",
     "ts-node": "^10.7.0",
-    "typescript": "^4.7.4"
+    "prettier": "^2.3.2",
+    "typescript": "^4.7.4",
+    "eslint": "^8.25.0",
+    "eslint-config-prettier": "^8.5.0"
   }
 }

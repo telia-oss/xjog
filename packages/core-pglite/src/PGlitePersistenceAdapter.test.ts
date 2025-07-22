@@ -11,9 +11,7 @@ describe('PglitePersistenceAdapter', () => {
   });
 
   it('should run migrations', async () => {
-    const adapter = await PGlitePersistenceAdapter.connect({
-      dataDir: 'test.db',
-    });
+    const adapter = await PGlitePersistenceAdapter.connect();
     expect(adapter).toBeDefined();
 
     const result = await adapter.withTransaction(async (client) => {
