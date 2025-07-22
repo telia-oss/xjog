@@ -10,9 +10,7 @@
     "node": ">=16.x"
   },
   "scripts": {
-    "watch-all": "lerna run build ; lerna watch -- lerna run build --since",
-    "link-all": "lerna exec --parallel yarn link",
-    "unlink-all": "lerna exec --parallel --bail=false yarn unlink"
+    "watch-all": "lerna run build ; lerna watch -- lerna run build --since"
   },
   "devDependencies": {
     "lerna": "7.4.2"

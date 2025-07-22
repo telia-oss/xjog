@@ -43,6 +43,9 @@ jobs:
           npm install -g yarn@${{ env.YARN_VERSION }}
           yarn set version ${{ env.YARN_VERSION }}
 
+      - name: Link packages
+        run: yarn link-all
+
       - name: Install dependencies
         shell: bash
         run: |
@@ -50,9 +53,6 @@ jobs:
 
       - name: Run lint
         run: yarn lerna run lint
-
-      - name: Link packages
-        run: yarn link-all
 
       - name: Run tests
         run: yarn lerna run test
