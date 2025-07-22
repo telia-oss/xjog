@@ -523,7 +523,7 @@ export class XJogChart<
           const rule = this.xJog.simulator.matchesRule({ eventName, action });
           if (rule) {
             trace({
-              message: `Matched simulation rule, will ${action} event`,
+              message: `Matched simulation rule, will potentially ${rule.action} event`,
               eventName,
               rule,
             });
@@ -537,18 +537,11 @@ export class XJogChart<
         }
 
         if (getMatchingRule('fail')) {
-          trace({
-            message: 'Matched simulation rule, failing event',
-            eventName,
-          });
           throw new Error(`Simulated failure for event ${eventName}`);
         }
 
         if (getMatchingRule('delay')) {
-          trace({
-            message: 'Matched simulation rule, delaying event',
-            eventName,
-          });
+          // Assume the value is in milliseconds and delay of the event
           const delay = parseInt(getMatchingRule('delay')?.value ?? '0');
           if (!isNaN(delay)) {
             await new Promise((resolve) => setTimeout(resolve, delay));
