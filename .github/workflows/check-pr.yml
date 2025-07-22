@@ -51,5 +51,14 @@ jobs:
       - name: Run lint
         run: yarn lerna run lint
 
+      - name: Link packages
+        run: yarn link-all
+
       - name: Run tests
         run: yarn lerna run test
+
+      - name: Run build
+        run: yarn lerna run build
+
+      - name: Unlink packages
+        run: yarn unlink-all
