@@ -1,1 +1,1 @@
-export * from './PglitePersistenceAdapter';
+export * from './PGlitePersistenceAdapter';

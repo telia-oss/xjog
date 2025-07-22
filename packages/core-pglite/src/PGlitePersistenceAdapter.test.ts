@@ -1,6 +1,6 @@
 import { PGlitePersistenceAdapter } from './PGlitePersistenceAdapter';
 
-describe('PglitePersistenceAdapter', () => {
+describe('PGlitePersistenceAdapter', () => {
   it('should be defined', () => {
     expect(PGlitePersistenceAdapter).toBeDefined();
   });
