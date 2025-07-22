@@ -2,7 +2,8 @@ import { XJog } from './XJog';
 
 export type SimulatorRule = {
   eventName: string;
-  action: 'block' | 'fail';
+  action: 'block' | 'fail' | 'delay';
+  value?: string;
 };
 
 /**
@@ -15,10 +16,18 @@ export type SimulatorRule = {
  *   persistence: await PGlitePersistenceAdapter.connect(),
  * });
  * const simulator = xJog.simulator;
+ *
+ * // Add a rule to block the event 'foo'
+ * // Other actions are 'fail' and 'delay'
  * simulator.addRule({ eventName: 'foo', action: 'block' });
  *
- * const result = await xJog.sendEvent('foo'); // Event is blocked
- * const result = await xJog.sendEvent('bar'); // Event is not blocked
+ * // Send events
+ * await xJog.sendEvent('foo'); // Event is blocked
+ * await xJog.sendEvent('bar'); // Event is not blocked
+ *
+ * // Remove the rule
+ * simulator.removeRule({ eventName: 'foo' });
+ * await xJog.sendEvent('foo'); // Event is no longer blocked
  * ```
  */
 export class XJogSimulator {
@@ -26,12 +35,19 @@ export class XJogSimulator {
 
   constructor(private readonly xJog: XJog) {}
 
+  public isEnabled(): boolean {
+    return this.rules.length > 0;
+  }
+
   public addRule(rule: SimulatorRule) {
     this.rules.push(rule);
   }
 
-  public removeRule(rule: SimulatorRule) {
-    this.rules.splice(this.rules.indexOf(rule), 1);
+  public removeRule(rule: Partial<SimulatorRule>) {
+    const matchingRule = this.matchesRule(rule);
+    if (matchingRule) {
+      this.rules.splice(this.rules.indexOf(matchingRule), 1);
+    }
   }
 
   public matchesRule(matcher: Partial<SimulatorRule>): SimulatorRule | null {

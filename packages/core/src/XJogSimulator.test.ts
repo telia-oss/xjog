@@ -26,10 +26,15 @@ function mockXJogWithSimulator(
 }
 
 describe('XJogSimulator', () => {
-  it('should match rules', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
-    const [, simulator] = mockXJogWithSimulator(persistence);
+  let persistence: PersistenceAdapter;
+  let simulator: XJogSimulator;
 
+  beforeEach(async () => {
+    persistence = await PGlitePersistenceAdapter.connect();
+    [, simulator] = mockXJogWithSimulator(persistence);
+  });
+
+  it('should match rules', async () => {
     expect(simulator.matchesRule({ eventName: 'test' })).toBeNull();
 
     const testRule: SimulatorRule = {
@@ -49,5 +54,18 @@ describe('XJogSimulator', () => {
     expect(
       simulator.matchesRule({ eventName: 'invalid', action: 'fail' }),
     ).toBe(null);
+  });
+
+  it('should remove rules', async () => {
+    const testRule: SimulatorRule = {
+      eventName: 'test',
+      action: 'block',
+    };
+
+    simulator.addRule(testRule);
+    expect(simulator.matchesRule(testRule)).toEqual(testRule);
+
+    simulator.removeRule({ eventName: 'test' });
+    expect(simulator.matchesRule(testRule)).toBeNull();
   });
 });

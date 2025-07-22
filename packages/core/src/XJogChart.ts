@@ -514,12 +514,45 @@ export class XJogChart<
 
     return this.xJog.timeExecution('chart.send', async () => {
       const scxmlEvent = toSCXMLEvent(event);
-      if (this.xJog.simulator.matchesRule({ eventName: scxmlEvent.name })) {
-        trace({
-          message: 'Matched simulation rule, ignoring event',
-          eventName: scxmlEvent.name,
-        });
-        return null;
+
+      // Dev only: If a simulation rule matches, ignore the event
+      if (this.xJog.simulator.isEnabled()) {
+        const eventName = scxmlEvent.name;
+        const getMatchingRule = (action: 'block' | 'fail' | 'delay') => {
+          const rule = this.xJog.simulator.matchesRule({ eventName, action });
+          if (rule) {
+            trace({
+              message: `Matched simulation rule, will ${action} event`,
+              eventName,
+              action,
+            });
+            return rule;
+          }
+          return null;
+        };
+
+        if (getMatchingRule('block')) {
+          return null;
+        }
+
+        if (getMatchingRule('fail')) {
+          trace({
+            message: 'Matched simulation rule, failing event',
+            eventName,
+          });
+          throw new Error(`Simulated failure for event ${eventName}`);
+        }
+
+        if (getMatchingRule('delay')) {
+          trace({
+            message: 'Matched simulation rule, delaying event',
+            eventName,
+          });
+          const delay = parseInt(getMatchingRule('delay')?.value ?? '0');
+          if (!isNaN(delay)) {
+            await new Promise((resolve) => setTimeout(resolve, delay * 1000));
+          }
+        }
       }
 
       trace({ message: 'Sending event', eventName: scxmlEvent.name });
