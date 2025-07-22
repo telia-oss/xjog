@@ -514,7 +514,7 @@ export class XJogChart<
 
     return this.xJog.timeExecution('chart.send', async () => {
       const scxmlEvent = toSCXMLEvent(event);
-      if (this.xJog.simulator.matchesRule(scxmlEvent)) {
+      if (this.xJog.simulator.matchesRule({ eventName: scxmlEvent.name })) {
         trace({
           message: 'Matched simulation rule, ignoring event',
           eventName: scxmlEvent.name,

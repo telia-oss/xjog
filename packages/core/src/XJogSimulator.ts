@@ -1,34 +1,56 @@
-import { ChartReference } from '@samihult/xjog-util';
 import { XJog } from './XJog';
 
-type Rule = {
+export type SimulatorRule = {
   eventName: string;
   action: 'block' | 'fail';
 };
 
+/**
+ * XJogSimulator is a class that allows you to simulate events and errors.
+ * It is used to test XJog in a controlled environment.
+ *
+ * @example
+ * ```ts
+ * const xJog = new XJog({
+ *   persistence: await PGlitePersistenceAdapter.connect(),
+ * });
+ * const simulator = xJog.simulator;
+ * simulator.addRule({ eventName: 'foo', action: 'block' });
+ *
+ * const result = await xJog.sendEvent('foo'); // Event is blocked
+ * const result = await xJog.sendEvent('bar'); // Event is not blocked
+ * ```
+ */
 export class XJogSimulator {
-  private rules: Rule[] = [];
+  private rules: SimulatorRule[] = [];
 
   constructor(private readonly xJog: XJog) {}
 
-  public addRule(rule: Rule) {
+  public addRule(rule: SimulatorRule) {
     this.rules.push(rule);
   }
 
-  public removeRule(rule: Rule) {
+  public removeRule(rule: SimulatorRule) {
     this.rules.splice(this.rules.indexOf(rule), 1);
   }
 
-  public matchesRule(event: any): boolean {
+  public matchesRule(matcher: Partial<SimulatorRule>): SimulatorRule | null {
     this.xJog.trace(
-      { in: 'matchesRule', event },
+      { in: 'matchesRule', event: matcher },
       'Checking if event matches rule',
     );
 
-    if (this.rules.length === 0) {
-      return false;
+    const matchingRule = this.rules.find((rule) => {
+      return Object.keys(matcher).every((matcherKey) => {
+        const key = matcherKey as keyof SimulatorRule;
+        return rule[key] === matcher[key];
+      });
+    });
+
+    if (!matchingRule) {
+      return null;
     }
 
-    return this.rules.some((rule) => rule.eventName === event.name);
+    return matchingRule;
   }
 }
