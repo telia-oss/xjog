@@ -68,6 +68,7 @@ import {
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
 } from './resolveXJogStateChange';
+import { SimulatorAction } from './XJogSimulator';
 
 export type XJogSendAction<
   TContext = any,
@@ -514,6 +515,41 @@ export class XJogChart<
 
     return this.xJog.timeExecution('chart.send', async () => {
       const scxmlEvent = toSCXMLEvent(event);
+
+      // Dev only: If a simulation rule matches, ignore the event
+      if (this.xJog.simulator.isEnabled()) {
+        const eventName = scxmlEvent.name;
+        const getMatchingRule = (action: SimulatorAction) => {
+          const rule = this.xJog.simulator.matchesRule({ eventName, action });
+          if (rule) {
+            trace({
+              message: `Matched simulation rule, will ${rule.action} event ${event}`,
+              eventName,
+              rule,
+            });
+            return rule;
+          }
+          return null;
+        };
+
+        if (getMatchingRule('skip')) {
+          return null;
+        }
+
+        if (getMatchingRule('fail')) {
+          throw new Error(`Simulated failure for event ${eventName}`);
+        }
+
+        const delayRule = getMatchingRule('delay');
+        if (delayRule) {
+          // Assume the value is in milliseconds and delay of the event
+          const delay = parseInt(delayRule.value ?? '0');
+          if (!isNaN(delay)) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+      }
+
       trace({ message: 'Sending event', eventName: scxmlEvent.name });
 
       if (this.stopping || this.xJog.dying) {
