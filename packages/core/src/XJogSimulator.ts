@@ -1,6 +1,6 @@
 import { XJog } from './XJog';
 
-export type SimulatorAction = 'block' | 'fail' | 'delay';
+export type SimulatorAction = 'skip' | 'fail' | 'delay';
 
 export type SimulatorRule = {
   eventName: string;
@@ -20,18 +20,18 @@ export type SimulatorRule = {
  * });
  * const simulator = xJog.simulator;
  *
- * // Add a rule to block the event 'foo'
+ * // Add a rule to skip the event 'foo'
  * // Other actions are 'fail' and 'delay'
  * // You can also set a percentage (0-100) to the rule to control the likelihood of the rule being matched
- * simulator.addRule({ eventName: 'foo', action: 'block', percentage: 50 });
+ * simulator.addRule({ eventName: 'foo', action: 'skip', percentage: 50 });
  *
  * // Send events
- * await xJog.sendEvent('foo'); // Event is blocked 50% of the time
- * await xJog.sendEvent('bar'); // Event is not blocked
+ * await xJog.sendEvent('foo'); // Event is skipped 50% of the time
+ * await xJog.sendEvent('bar'); // Event is not skipped
  *
  * // Remove the rule
  * simulator.removeRule({ eventName: 'foo' });
- * await xJog.sendEvent('foo'); // Event is no longer blocked
+ * await xJog.sendEvent('foo'); // Event is no longer skipped
  * ```
  */
 export class XJogSimulator {

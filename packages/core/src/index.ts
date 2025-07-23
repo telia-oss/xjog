@@ -7,7 +7,7 @@ export * from './XJogChart';
 export * from './XJogStartupManager';
 export * from './XJogActivityManager';
 export * from './XJogDeferredEventManager';
-
+export * from './XJogSimulator';
 export * from './XJogOptions';
 export * from './XJogMachineOptions';
 export * from './XJogChartCreationOptions';

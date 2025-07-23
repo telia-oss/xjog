@@ -532,7 +532,7 @@ export class XJogChart<
           return null;
         };
 
-        if (getMatchingRule('block')) {
+        if (getMatchingRule('skip')) {
           return null;
         }
 
