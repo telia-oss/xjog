@@ -6,7 +6,7 @@ export type SimulatorRule = {
   event: string;
   action: SimulatorAction;
   value?: string;
-  percentage?: number; // 0-100
+  percentage?: string; // 0-100
 };
 
 /**
@@ -88,9 +88,14 @@ export class XJogSimulator {
 
     // Take the percentage into account
     // Bigger then number means more likely the rule will be matched
-    const givenPercentage = matchingRule.percentage ?? 100;
+    const givenPercentage = matchingRule.percentage ?? '100';
     const randomPercentage = Math.random() * 100;
-    if (randomPercentage < givenPercentage) {
+    const givenPercentageNumber = Number(givenPercentage);
+    if (isNaN(givenPercentageNumber)) {
+      throw new Error(`Invalid percentage: ${givenPercentage}`);
+    }
+
+    if (randomPercentage < givenPercentageNumber) {
       this.xJog.trace(
         { event: ruleCandidate.event, rule: matchingRule },
         'Simulator rule matched',
