@@ -3,7 +3,7 @@ import { XJog } from './XJog';
 export type SimulatorAction = 'skip' | 'fail' | 'delay';
 
 export type SimulatorRule = {
-  eventName: string;
+  event: string;
   action: SimulatorAction;
   value?: string;
   percentage?: number; // 0-100
@@ -43,8 +43,12 @@ export class XJogSimulator {
     return this.rules.length > 0;
   }
 
-  public addRule(rule: SimulatorRule) {
+  public addRule(rule: SimulatorRule): void {
     this.rules.push(rule);
+  }
+
+  public addRules(rules: SimulatorRule[]): void {
+    this.rules.push(...rules);
   }
 
   public removeRule(matcher?: Partial<SimulatorRule>) {
@@ -62,16 +66,19 @@ export class XJogSimulator {
     }
   }
 
-  public matchesRule(matcher: Partial<SimulatorRule>): SimulatorRule | null {
-    this.xJog.trace(
-      { in: 'matchesRule', event: matcher },
-      'Checking if event matches rule',
-    );
-
+  public matchesRule(
+    ruleCandidate: Partial<SimulatorRule>,
+  ): SimulatorRule | null {
     const matchingRule = this.rules.find((rule) => {
-      return Object.keys(matcher).every((matcherKey) => {
+      return Object.keys(ruleCandidate).every((matcherKey) => {
         const key = matcherKey as keyof SimulatorRule;
-        return rule[key] === matcher[key];
+
+        // Support wildcards in the event name
+        if (key === 'event' && rule.event?.endsWith('*')) {
+          return ruleCandidate[key]?.startsWith(rule.event.replace('*', ''));
+        }
+
+        return rule[key] === ruleCandidate[key];
       });
     });
 
@@ -84,6 +91,10 @@ export class XJogSimulator {
     const givenPercentage = matchingRule.percentage ?? 100;
     const randomPercentage = Math.random() * 100;
     if (randomPercentage < givenPercentage) {
+      this.xJog.trace(
+        { event: ruleCandidate.event, rule: matchingRule },
+        'Simulator rule matched',
+      );
       return matchingRule;
     }
     return null;

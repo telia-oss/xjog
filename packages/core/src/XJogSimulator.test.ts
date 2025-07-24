@@ -35,93 +35,142 @@ describe('XJogSimulator', () => {
   });
 
   it('should match rules', async () => {
-    expect(simulator.matchesRule({ eventName: 'test' })).toBeNull();
+    expect(simulator.matchesRule({ event: 'test' })).toBeNull();
 
     const testRule: SimulatorRule = {
-      eventName: 'test',
-      action: 'block',
+      event: 'test',
+      action: 'skip',
     };
 
     simulator.addRule(testRule);
 
-    expect(simulator.matchesRule({ eventName: 'test' })).toEqual(testRule);
-    expect(
-      simulator.matchesRule({ eventName: 'test', action: 'block' }),
-    ).toEqual(testRule);
-    expect(
-      simulator.matchesRule({ eventName: 'test', action: 'fail' }),
-    ).toBeNull();
-    expect(
-      simulator.matchesRule({ eventName: 'invalid', action: 'fail' }),
-    ).toBe(null);
+    expect(simulator.matchesRule({ event: 'test' })).toEqual(testRule);
+    expect(simulator.matchesRule({ event: 'test', action: 'skip' })).toEqual(
+      testRule,
+    );
+    expect(simulator.matchesRule({ event: 'test', action: 'fail' })).toBeNull();
+    expect(simulator.matchesRule({ event: 'invalid', action: 'fail' })).toBe(
+      null,
+    );
+  });
+
+  it('should add multiple rules', async () => {
+    const testRule1: SimulatorRule = {
+      event: 'test1',
+      action: 'skip',
+    };
+    const testRule2: SimulatorRule = {
+      event: 'test2',
+      action: 'skip',
+    };
+
+    simulator.addRules([testRule1, testRule2]);
+    expect(simulator.matchesRule({ event: 'test1' })).toEqual(testRule1);
+    expect(simulator.matchesRule({ event: 'test2' })).toEqual(testRule2);
+    expect(simulator.matchesRule({ event: 'test3' })).toBeNull();
   });
 
   it('should remove rules', async () => {
     const testRule: SimulatorRule = {
-      eventName: 'test',
-      action: 'block',
+      event: 'test',
+      action: 'skip',
     };
 
     simulator.addRule(testRule);
     expect(simulator.matchesRule(testRule)).toEqual(testRule);
 
-    simulator.removeRule({ eventName: 'test' });
+    simulator.removeRule({ event: 'test' });
     expect(simulator.matchesRule(testRule)).toBeNull();
   });
 
   it('should remove multiple rules', async () => {
     const testRule1: SimulatorRule = {
-      eventName: 'test1',
-      action: 'block',
+      event: 'test1',
+      action: 'skip',
     };
     const testRule2: SimulatorRule = {
-      eventName: 'test2',
-      action: 'block',
+      event: 'test2',
+      action: 'skip',
     };
 
     simulator.addRule(testRule1);
     simulator.addRule(testRule2);
 
-    expect(simulator.matchesRule({ action: 'block' })).toEqual(testRule1);
-    simulator.removeRule({ action: 'block' });
-    expect(simulator.matchesRule({ action: 'block' })).toBeNull();
+    expect(simulator.matchesRule({ action: 'skip' })).toEqual(testRule1);
+    simulator.removeRule({ action: 'skip' });
+    expect(simulator.matchesRule({ action: 'skip' })).toBeNull();
   });
 
   it('should remove all rules', async () => {
     const testRule: SimulatorRule = {
-      eventName: 'test',
-      action: 'block',
+      event: 'test',
+      action: 'skip',
     };
 
     simulator.addRule(testRule);
-    expect(simulator.matchesRule({ eventName: 'test' })).toEqual(testRule);
+    expect(simulator.matchesRule({ event: 'test' })).toEqual(testRule);
 
     simulator.removeRule();
-    expect(simulator.matchesRule({ eventName: 'test' })).toBeNull();
+    expect(simulator.matchesRule({ event: 'test' })).toBeNull();
   });
 
   it('should match rules with percentage', async () => {
     // 100% chance of matching
     const matchingRule: SimulatorRule = {
-      eventName: 'test',
-      action: 'block',
+      event: 'test',
+      action: 'skip',
       percentage: 100,
     };
     // 0% chance of matching
     const notMatchingRule: SimulatorRule = {
-      eventName: 'test',
-      action: 'block',
+      event: 'test',
+      action: 'skip',
       percentage: 0,
     };
 
     // Remove old rule and add new one
     simulator.removeRule();
     simulator.addRule(matchingRule);
-    expect(simulator.matchesRule({ eventName: 'test' })).toEqual(matchingRule);
+    expect(simulator.matchesRule({ event: 'test' })).toEqual(matchingRule);
 
     // Remove old rule and add new one
     simulator.removeRule();
     simulator.addRule(notMatchingRule);
-    expect(simulator.matchesRule({ eventName: 'test' })).toBeNull();
+    expect(simulator.matchesRule({ event: 'test' })).toBeNull();
+  });
+
+  it('should match with wildcard event', async () => {
+    const testRule: SimulatorRule = {
+      event: 'test.*',
+      action: 'skip',
+    };
+
+    simulator.addRule(testRule);
+    expect(simulator.matchesRule({ event: 'test.1' })).toEqual(testRule);
+    expect(simulator.matchesRule({ event: 'test.2' })).toEqual(testRule);
+
+    expect(
+      simulator.matchesRule({ event: 'test.2', action: 'fail' }),
+    ).toBeNull();
+    expect(simulator.matchesRule({ event: 'foo.1' })).toBeNull();
+  });
+
+  it('should match all events', async () => {
+    const testRule: SimulatorRule = {
+      event: '*',
+      action: 'skip',
+    };
+
+    simulator.addRule(testRule);
+    expect(simulator.matchesRule({ event: 'test.1' })).toEqual(testRule);
+    expect(simulator.matchesRule({ event: 'test.2', action: 'skip' })).toEqual(
+      testRule,
+    );
+    expect(simulator.matchesRule({ event: 'foo.1', action: 'skip' })).toEqual(
+      testRule,
+    );
+    expect(
+      simulator.matchesRule({ event: 'foo.1', action: 'fail' }),
+    ).toBeNull();
   });
 });
