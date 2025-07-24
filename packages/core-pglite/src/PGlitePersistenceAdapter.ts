@@ -101,7 +101,7 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         dbClient: pool as any,
         migrationsTable: 'migrations_xjog',
         singleTransaction: true,
-        dir: path.join(__dirname, '..', 'migrations'),
+        dir: path.join(__dirname, 'migrations'),
         direction: 'up',
         log: (message) => adapter.trace({ in: 'connect', message }),
         // https://github.com/salsita/node-pg-migrate/issues/821,

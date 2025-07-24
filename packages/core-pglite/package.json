@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-core-pglite",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Lightweight PG adapter",
   "keywords": [
     "pg"
@@ -17,7 +17,9 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "yarn build:bin ; yarn build:files",
+    "build:bin": "tsc",
+    "build:files": "cpx-fixed 'src/**/*.sql' lib",
     "clean": "rm -rf node_modules lib",
     "format": "prettier --write 'src/**/*.ts'",
     "lint": "eslint src/**/*.ts && prettier --check src",
@@ -26,8 +28,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",
-    "@samihult/xjog-core-persistence": "^0.0.40",
-    "@samihult/xjog-util": "^0.0.35",
+    "@samihult/xjog-core-persistence": "^0.0.41",
+    "@samihult/xjog-util": "^0.0.36",
     "node-pg-migrate": "^6.2.1"
   },
   "devDependencies": {
@@ -36,6 +38,7 @@
     "@swc/jest": "^0.2.22",
     "@types/jest": "^27.0.1",
     "@types/node": "^16.7.10",
+    "cpx-fixed": "^1.6.0",
     "eslint": "^8.25.0",
     "eslint-config-prettier": "^8.5.0",
     "jest": "^28.1.2",
