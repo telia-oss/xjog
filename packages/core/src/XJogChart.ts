@@ -520,7 +520,10 @@ export class XJogChart<
       if (this.xJog.simulator.isEnabled()) {
         const eventName = scxmlEvent.name;
         const getMatchingRule = (action: SimulatorAction) => {
-          const rule = this.xJog.simulator.matchesRule({ eventName, action });
+          const rule = this.xJog.simulator.matchesRule({
+            event: eventName,
+            action,
+          });
           if (rule) {
             trace({
               message: `Matched simulation rule, will ${rule.action} event ${event}`,
