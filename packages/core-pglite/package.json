@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-core-pglite",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Lightweight PG adapter",
   "keywords": [
     "pg"
@@ -26,8 +26,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",
-    "@samihult/xjog-core-persistence": "^0.0.39",
-    "@samihult/xjog-util": "^0.0.34",
+    "@samihult/xjog-core-persistence": "^0.0.40",
+    "@samihult/xjog-util": "^0.0.35",
     "node-pg-migrate": "^6.2.1"
   },
   "devDependencies": {
