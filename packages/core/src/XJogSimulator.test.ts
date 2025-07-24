@@ -119,13 +119,13 @@ describe('XJogSimulator', () => {
     const matchingRule: SimulatorRule = {
       event: 'test',
       action: 'skip',
-      percentage: 100,
+      percentage: '100',
     };
     // 0% chance of matching
     const notMatchingRule: SimulatorRule = {
       event: 'test',
       action: 'skip',
-      percentage: 0,
+      percentage: '0',
     };
 
     // Remove old rule and add new one
