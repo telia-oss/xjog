@@ -1,5 +1,5 @@
-import { MockPersistenceAdapter } from './persistence/MockPersistenceAdapter';
-import { PersistenceAdapter } from './persistence/PersistenceAdapter';
+import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 
 import { XJog } from './XJog';
 import { XJogStartupManager } from './XJogStartupManager';
@@ -12,6 +12,7 @@ function mockXJogWithStartupManager(
     id: 'xjog-id',
     persistence,
     trace: trace ? console.log : () => {},
+    emit: jest.fn(),
     options: {
       startup: {
         adoptionFrequency: 20,
@@ -27,7 +28,7 @@ function mockXJogWithStartupManager(
 
 describe('XJogStartupManager', () => {
   it('Is initially idle, not started and not finished', async () => {
-    const persistence = new MockPersistenceAdapter();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     expect(startupManager.started).toBe(false);
@@ -35,19 +36,17 @@ describe('XJogStartupManager', () => {
   });
 
   it('Become ready right after the startup sequence when nothing to adopt', async () => {
-    const persistence = new MockPersistenceAdapter();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     await startupManager.start();
 
     expect(startupManager.started).toBe(true);
     expect(startupManager.ready).toBe(true);
-
-    await startupManager.waitUntilReady();
   });
 
   it('Executes the right routines during the startup', async () => {
-    const persistence = new MockPersistenceAdapter();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     jest.spyOn(persistence, 'overthrowOtherInstances');
@@ -63,7 +62,5 @@ describe('XJogStartupManager', () => {
     expect(startupManager.startAdoptionGracePeriod).toHaveBeenCalled();
     // @ts-ignore Private access
     expect(startupManager.adoptCharts).toHaveBeenCalled();
-
-    await startupManager.waitUntilReady();
   });
 });

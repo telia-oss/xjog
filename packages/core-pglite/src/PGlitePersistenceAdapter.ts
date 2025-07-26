@@ -1,6 +1,5 @@
-import { ClientConfig, Pool, PoolClient, PoolConfig } from 'pg';
+import { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
 import migrationRunner from 'node-pg-migrate';
-import bind from 'pg-bind';
 import path from 'path';
 
 import {
@@ -26,12 +25,12 @@ import {
 /**
  * Options for instantiating {@link PostgresPersistenceAdapter}.
  */
-export type PostgreSQLPersistenceAdapterOptions = {};
+export type PGlitePersistenceAdapterOptions = Record<string, never>;
 
 /**
  * Chart row directly from the SQL query
  */
-type PostgreSQLChartRow = {
+type PGliteChartRow = {
   timestamp: number;
   ownerId: string;
   machineId: string;
@@ -45,7 +44,7 @@ type PostgreSQLChartRow = {
 /**
  * Deferred event row directly from the SQL query
  */
-type PostgreSQLDeferredEventRow = {
+type PGliteDeferredEventRow = {
   id: number;
   machineId: string;
   chartId: string;
@@ -59,21 +58,21 @@ type PostgreSQLDeferredEventRow = {
 };
 
 /**
- * Use the static method [connect]{@link PostgresPersistenceAdapter.connect} to
+ * Use the static method [connect]{@link PGlitePersistenceAdapter.connect} to
  * create an instance of this {@link PersistenceAdapter PersistenceAdapter} for
- * [PostgreSql](https://www.postgresql.org/).
+ * [Pglite](https://github.com/electric-sql/pglite).
  *
  * @group Persistence
  * @extends PersistenceAdapter
  * @hideconstructor
  */
-export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
+export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   public readonly component = 'persistence';
   public readonly type = 'pg';
 
   public constructor(
-    public readonly pool: Pool,
-    public readonly clientConfig: ClientConfig,
+    public readonly pool: PGlite,
+    public readonly clientConfig: PGliteOptions,
   ) {
     super();
   }
@@ -88,38 +87,37 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
    * regular database adapter. Let one resolve (e.g. `await`) before calling another.
    */
   static async connect(
-    poolConfiguration: PoolConfig,
-    // TODO resolve
-    options: Partial<PostgreSQLPersistenceAdapterOptions> = {},
-  ): Promise<PostgresPersistenceAdapter> {
+    poolConfiguration: PGliteOptions = {},
+    options: Partial<PGlitePersistenceAdapterOptions> = {},
+  ): Promise<PGlitePersistenceAdapter> {
     // TODO pass logging to the pool
-    const pool = new Pool(poolConfiguration);
-    const adapter = new PostgresPersistenceAdapter(pool, poolConfiguration);
+    const pool = await PGlite.create(poolConfiguration);
+    const adapter = new PGlitePersistenceAdapter(pool, poolConfiguration);
 
-    let migrationClient;
     try {
-      migrationClient = await pool.connect();
+      // NOTE: Pglite does not allow running multiple queries with query but exec should be used
+      // and migration runner uses query.
       await migrationRunner({
-        dbClient: migrationClient,
+        dbClient: pool as any,
         migrationsTable: 'migrations_xjog',
-        dir: path.join(__dirname, './migrations'),
+        singleTransaction: true,
+        dir: path.join(__dirname, '..', 'migrations'),
         direction: 'up',
         log: (message) => adapter.trace({ in: 'connect', message }),
         // https://github.com/salsita/node-pg-migrate/issues/821,
         checkOrder: false,
-        noLock: true,
+        noLock: false,
       });
-    } finally {
-      if (migrationClient) {
-        await migrationClient.release();
-      }
+    } catch (error) {
+      await pool.close();
+      throw error;
     }
 
     return adapter;
   }
 
   public async disconnect(): Promise<void> {
-    await this.pool.end();
+    await this.pool.close();
   }
 
   /**
@@ -130,28 +128,31 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
    * if applicable.
    */
   public async withTransaction<ReturnType>(
-    routine: (client: PoolClient) => Promise<ReturnType> | ReturnType,
-    transactionConnectionForNesting?: PoolClient,
+    routine: (client: PGlite) => Promise<ReturnType> | ReturnType,
+    transactionConnectionForNesting?: Transaction,
   ): Promise<ReturnType> {
-    const client = await this.pool.connect();
-    await client.query('BEGIN');
+    return await this.pool.transaction(async (tx: Transaction) => {
+      await tx.query('BEGIN');
+      let returnValue: ReturnType;
 
-    try {
-      const returnValue = await routine(client);
-      await client.query('COMMIT');
+      try {
+        returnValue = await routine(tx as unknown as PGlite);
+        await tx.query('COMMIT');
+      } catch (error) {
+        await tx.query('ROLLBACK');
+        throw error;
+      } finally {
+        await tx.rollback();
+      }
+
       return returnValue;
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   public async countAliveInstances(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
-    const result = await connection.query(
+    const result = await connection.query<{ instanceCount: number }>(
       'SELECT COUNT(*) AS "instanceCount" FROM "instances" WHERE "dying"=FALSE',
     );
     return Number(result.rows[0].instanceCount);
@@ -159,46 +160,47 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
 
   protected async insertInstance(
     id: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query(
-      bind('INSERT INTO "instances" ("instanceId") VALUES (:id)', { id }),
+      'INSERT INTO "instances" ("instanceId") VALUES ($1)',
+      [id],
     );
   }
 
   protected async deleteInstance(
     id: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     // TODO re-enable or make a cleanup with some lookbehind period
     // await connection.query('DELETE FROM instances WHERE "instanceId"=$1', [id]);
   }
 
   protected async markAllInstancesDying(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query('UPDATE "instances" SET "dying"=TRUE');
   }
 
   protected async markAllChartsPaused(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query('UPDATE "charts" SET "paused"=TRUE');
   }
 
   protected async countPausedCharts(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
-    const result = await connection.query(
+    const result = await connection.query<{ chartCount: number }>(
       'SELECT COUNT(*) AS "chartCount" FROM "charts" WHERE "paused"=TRUE',
     );
     return result.rows[0].chartCount;
   }
 
   protected async getPausedChartIds(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<ChartReference[]> {
-    const result = await connection.query(
+    const result = await connection.query<ChartReference>(
       'SELECT "machineId", "chartId" FROM "charts" WHERE "paused"=TRUE',
     );
 
@@ -206,9 +208,9 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   }
 
   protected async getPausedChartWithNoOngoingActivitiesIds(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<ChartReference[]> {
-    const result = await connection.query(
+    const result = await connection.query<ChartReference>(
       'SELECT "machineId", "chartId" FROM "charts" ' +
         'WHERE "paused" = TRUE AND NOT EXISTS (' +
         '  SELECT * FROM "ongoingActivities" ' +
@@ -222,20 +224,17 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
 
   public async countOwnCharts(
     instanceId: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
-    const result = await connection.query(
-      bind(
-        'SELECT COUNT(*) AS "chartCount" FROM "charts" ' +
-          'WHERE "ownerId" = :instanceId',
-        { instanceId },
-      ),
+    const result = await connection.query<{ chartCount: number }>(
+      'SELECT COUNT(*) AS "chartCount" FROM "charts" ' + 'WHERE "ownerId" = $1',
+      [instanceId],
     );
     return Number(result.rows[0].chartCount);
   }
 
   protected async deleteOngoingActivitiesForPausedCharts(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
     const result = await connection.query(
       'DELETE FROM "ongoingActivities" WHERE NOT EXISTS (' +
@@ -246,20 +245,18 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
         ')',
     );
 
-    return result.rowCount ?? 0;
+    return result.affectedRows ?? 0;
   }
 
   protected async changeOwnerAndResumePausedCharts(
     id: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query(
-      bind(
-        'UPDATE "charts" ' +
-          'SET "paused" = FALSE, "ownerId" = :id ' +
-          'WHERE "paused" = TRUE',
-        { id },
-      ),
+      'UPDATE "charts" ' +
+        'SET "paused" = FALSE, "ownerId" = $1 ' +
+        'WHERE "paused" = TRUE',
+      [id],
     );
   }
 
@@ -267,20 +264,14 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   protected async changeOwnerAndResumeCharts(
     instanceId: string,
     refs: ChartReference[],
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     for (const ref of refs) {
       await connection.query(
-        bind(
-          'UPDATE "charts" ' +
-            'SET "paused" = FALSE, "ownerId" = :instanceId ' +
-            'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
-          {
-            instanceId,
-            machineId: ref.machineId,
-            chartId: ref.chartId,
-          },
-        ),
+        'UPDATE "charts" ' +
+          'SET "paused" = FALSE, "ownerId" = $1 ' +
+          'WHERE "machineId" = $2 AND "chartId" = $3 ',
+        [instanceId, ref.machineId, ref.chartId],
       );
     }
   }
@@ -289,7 +280,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   public onDeathNote(
     instanceId: string,
     callback: () => void,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): () => void {
     let cancelled = false;
 
@@ -302,12 +293,10 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
         return;
       }
 
-      const result = await connection.query(
-        bind(
-          'SELECT COUNT(*) as "dying" FROM "instances" ' +
-            'WHERE "instanceId" = :instanceId AND "dying" = TRUE',
-          { instanceId },
-        ),
+      const result = await connection.query<{ dying: number }>(
+        'SELECT COUNT(*) as "dying" FROM "instances" ' +
+          'WHERE "instanceId" = $1 AND "dying" = TRUE',
+        [instanceId],
       );
 
       const dying = Number(result.rows[0].dying) > 0;
@@ -342,44 +331,36 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     ref: ChartReference,
     parentRef: ChartReference | null,
     state: State<TContext, TEvent, TStateSchema, TTypeState>,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query(
-      bind(
-        'INSERT INTO charts ' +
-          '(' +
-          '  "ownerId", "machineId", "chartId", ' +
-          '  "parentMachineId", "parentChartId", "state"' +
-          ') ' +
-          'VALUES (' +
-          '  :instanceId, :machineId, :chartId, ' +
-          '  :parentMachineId, :parentChartId, :state ' +
-          ')',
-        {
-          instanceId,
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-          parentMachineId: parentRef?.machineId ?? null,
-          parentChartId: parentRef?.chartId ?? null,
-          state: Buffer.from(JSON.stringify(state)),
-        },
-      ),
+      'INSERT INTO charts ' +
+        '(' +
+        '  "ownerId", "machineId", "chartId", ' +
+        '  "parentMachineId", "parentChartId", "state"' +
+        ') ' +
+        'VALUES (' +
+        '  $1, $2, $3, ' +
+        '  $4, $5, $6 ' +
+        ')',
+      [
+        instanceId,
+        ref.machineId,
+        ref.chartId,
+        parentRef?.machineId ?? null,
+        parentRef?.chartId ?? null,
+        Buffer.from(JSON.stringify(state)),
+      ],
     );
   }
 
   protected async chartExists(
     ref: ChartReference,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<boolean> {
     const result = await connection.query(
-      bind(
-        'SELECT 1 FROM "charts" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
+      'SELECT 1 FROM "charts" ' + 'WHERE "machineId" = $1 AND "chartId" = $2',
+      [ref.machineId, ref.chartId],
     );
 
     return result.rows.length > 0;
@@ -387,21 +368,18 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
 
   protected async readChart<TContext, TEvent extends EventObject>(
     ref: ChartReference,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<PersistedChart<TContext, TEvent> | null> {
-    const result = await connection.query<PostgreSQLChartRow>(
-      bind(
-        'SELECT * FROM "charts" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
-        { machineId: ref.machineId, chartId: ref.chartId },
-      ),
+    const result = await connection.query<PGliteChartRow>(
+      'SELECT * FROM "charts" ' + 'WHERE "machineId" = $1 AND "chartId" = $2 ',
+      [ref.machineId, ref.chartId],
     );
 
-    if (!result.rowCount) {
+    if (!result.affectedRows) {
       return null;
     }
 
-    return PostgresPersistenceAdapter.parseSqlChartRow<TContext, TEvent>(
+    return PGlitePersistenceAdapter.parseSqlChartRow<TContext, TEvent>(
       result.rows[0],
     );
   }
@@ -409,18 +387,12 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   protected async updateChartState<TContext, TEvent extends EventObject>(
     ref: ChartReference,
     state: State<TContext, TEvent, StateSchema<TContext>, Typestate<TContext>>,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query(
-      bind(
-        'UPDATE "charts" SET "state" = :state ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-          state: Buffer.from(JSON.stringify(state)),
-        },
-      ),
+      'UPDATE "charts" SET "state" = $1 ' +
+        'WHERE "machineId" = $2 AND "chartId" = $3 ',
+      [Buffer.from(JSON.stringify(state)), ref.machineId, ref.chartId],
     );
   }
 
@@ -478,35 +450,24 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
    */
   protected async deleteChart(
     ref: ChartReference,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
     const result = await connection.query(
-      bind(
-        'DELETE FROM "charts" WHERE "machineId" = :machineId AND "chartId" = :chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
+      'DELETE FROM "charts" WHERE "machineId" = $1 AND "chartId" = $2',
+      [ref.machineId, ref.chartId],
     );
-    return result.rowCount ?? 0;
+    return result.affectedRows ?? 0;
   }
 
   public async isActivityRegistered(
     ref: ChartReference,
     activityId: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<boolean> {
     const result = await connection.query(
-      bind(
-        'SELECT 1 FROM "ongoingActivities" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId AND "activityId" = :activityId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-          activityId,
-        },
-      ),
+      'SELECT 1 FROM "ongoingActivities" ' +
+        'WHERE "machineId" = $1 AND "chartId" = $2 AND "activityId" = $3',
+      [ref.machineId, ref.chartId, activityId],
     );
 
     return result.rows.length > 0;
@@ -516,17 +477,15 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     ref: ChartReference,
     activityId: string,
     cid: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     const response = await connection.query(
-      bind(
-        'INSERT INTO "ongoingActivities" ' +
-          '  ("machineId", "chartId", "activityId") ' +
-          'VALUES (:machineId, :chartId, :activityId) ' +
-          'ON CONFLICT ("machineId", "chartId", "activityId") ' +
-          '  DO NOTHING ',
-        { machineId: ref.machineId, chartId: ref.chartId, activityId },
-      ),
+      'INSERT INTO "ongoingActivities" ' +
+        '  ("machineId", "chartId", "activityId") ' +
+        'VALUES ($1, $2, $3) ' +
+        'ON CONFLICT ("machineId", "chartId", "activityId") ' +
+        '  DO NOTHING ',
+      [ref.machineId, ref.chartId, activityId],
     );
   }
 
@@ -534,14 +493,12 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     ref: ChartReference,
     activityId: string,
     cid: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     const response = await connection.query(
-      bind(
-        'DELETE FROM "ongoingActivities" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId AND "activityId" = :activityId',
-        { machineId: ref.machineId, chartId: ref.chartId, activityId },
-      ),
+      'DELETE FROM "ongoingActivities" ' +
+        'WHERE "machineId" = $1 AND "chartId" = $2 AND "activityId" = $3',
+      [ref.machineId, ref.chartId, activityId],
     );
   }
 
@@ -550,28 +507,24 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
    */
   protected async deleteAllDeferredEvents(
     ref: ChartReference,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
     const result = await connection.query(
-      bind(
-        'DELETE FROM "deferredEvents" WHERE "machineId" = :machineId AND "chartId" = :chartId',
-        { machineId: ref.machineId, chartId: ref.chartId },
-      ),
+      'DELETE FROM "deferredEvents" WHERE "machineId" = $1 AND "chartId" = $2',
+      [ref.machineId, ref.chartId],
     );
-    return result.rowCount ?? 0;
+    return result.affectedRows ?? 0;
   }
 
   public async getExternalIdentifiers(
     key: string,
     ref: ChartReference,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<string[]> {
     const result = await connection.query<{ value: string }>(
-      bind(
-        'SELECT "value" FROM "externalId" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId AND "key" = :key',
-        { machineId: ref.machineId, chartId: ref.chartId, key },
-      ),
+      'SELECT "value" FROM "externalId" ' +
+        'WHERE "machineId" = $1 AND "chartId" = $2 AND "key" = $3',
+      [ref.machineId, ref.chartId, key],
     );
     return result.rows.map((row) => row.value);
   }
@@ -579,7 +532,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   public async getChartByExternalIdentifier(
     key: string,
     value: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<ChartReference | null> {
     const result = await connection.query<ChartReference>(
       'SELECT "machineId", "chartId" FROM "externalId" ' +
@@ -594,7 +547,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     key: string,
     value: string,
     cid: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query(
       'INSERT INTO "externalId" ' +
@@ -613,13 +566,13 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     key: string,
     value: string,
     cid: string,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
     const result = await connection.query(
       'DELETE FROM "externalId" WHERE "key"=$1 AND "value"=$2',
       [key, value],
     );
-    return result.rowCount ?? 0;
+    return result.affectedRows ?? 0;
   }
 
   /**
@@ -627,13 +580,13 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
    */
   protected async deleteExternalIdentifiers(
     ref: ChartReference,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
     const result = await connection.query(
       'DELETE FROM "externalId" WHERE "machineId"=$1 AND "chartId"=$2',
       [ref.machineId, ref.chartId],
     );
-    return result.rowCount ?? 0;
+    return result.affectedRows ?? 0;
   }
 
   /** Corresponds to {@link PostgreSQLDeferredEventRow} */
@@ -645,9 +598,9 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
 
   protected async readDeferredEventRow(
     id: number,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<PersistedDeferredEvent | null> {
-    const result = await connection.query<PostgreSQLDeferredEventRow>(
+    const result = await connection.query<PGliteDeferredEventRow>(
       'SELECT ' +
         this.deferredEventSelectFields +
         'FROM "deferredEvents" ' +
@@ -656,11 +609,11 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
       [id],
     );
 
-    if (!result.rowCount) {
+    if (!result.affectedRows) {
       return null;
     }
 
-    return PostgresPersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
+    return PGlitePersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
   }
 
   /**
@@ -675,9 +628,9 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     instanceId: string,
     lookAhead: number,
     batchSize: number,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<PersistedDeferredEvent[]> {
-    const result = await connection.query(
+    const result = await connection.query<PGliteDeferredEventRow>(
       'WITH updated AS ( ' +
         '  UPDATE "deferredEvents" ' +
         '  SET "lock"=$3 ' +
@@ -698,7 +651,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
       [lookAhead, batchSize, instanceId],
     );
 
-    return result.rows.map(PostgresPersistenceAdapter.parseSqlDeferredEventRow);
+    return result.rows.map(PGlitePersistenceAdapter.parseSqlDeferredEventRow);
   }
 
   // protected async markDeferredEventBatchForProcessing(
@@ -724,7 +677,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   public async releaseDeferredEvent(
     ref: ChartReference,
     eventId: string | number,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query(
       'UPDATE "deferredEvents" SET "lock"=NULL ' +
@@ -734,7 +687,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   }
 
   protected async unmarkAllDeferredEventsForProcessing(
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<void> {
     await connection.query('UPDATE "deferredEvents" SET "lock"=NULL');
   }
@@ -744,7 +697,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
       PersistedDeferredEvent,
       'id' | 'due' | 'timestamp'
     >,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<PersistedDeferredEvent | null> {
     let toFieldStringRepresentation = null;
 
@@ -771,55 +724,53 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
       }
     }
 
-    const result = await connection.query<PostgreSQLDeferredEventRow>(
-      bind(
-        'INSERT INTO "deferredEvents" (' +
-          '  "machineId", "chartId", ' +
-          '  "eventId", "eventTo", "event", ' +
-          '  "timestamp", "delay", ' +
-          '  "due" ' +
-          ') VALUES (' +
-          '  :machineId, :chartId, ' +
-          '  :eventId, :eventTo, :event, ' +
-          '  transaction_timestamp(), :delay::bigint, ' +
-          '  transaction_timestamp() + make_interval(secs => :delay::bigint / 1000)' +
-          ') ' +
-          'RETURNING ' +
-          this.deferredEventSelectFields,
-        {
-          machineId: PersistedDeferredEvent.ref.machineId,
-          chartId: PersistedDeferredEvent.ref.chartId,
-
-          eventId: JSON.stringify(PersistedDeferredEvent.eventId),
-          eventTo: JSON.stringify(toFieldStringRepresentation),
-          event: JSON.stringify(PersistedDeferredEvent.event),
-
-          delay: Math.ceil(PersistedDeferredEvent.delay),
-        },
-      ),
+    const result = await connection.query<PGliteDeferredEventRow>(
+      'INSERT INTO "deferredEvents" (' +
+        '  "machineId", "chartId", ' +
+        '  "eventId", "eventTo", "event", ' +
+        '  "timestamp", "delay", ' +
+        '  "due" ' +
+        ') VALUES (' +
+        '  $1, $2, ' +
+        '  $3, $4, $5, ' +
+        '  transaction_timestamp(), $6::bigint, ' +
+        '  transaction_timestamp() + make_interval(secs => $6::bigint / 1000)' +
+        ') ' +
+        'RETURNING ' +
+        this.deferredEventSelectFields,
+      [
+        PersistedDeferredEvent.ref.machineId,
+        PersistedDeferredEvent.ref.chartId,
+        JSON.stringify(PersistedDeferredEvent.eventId),
+        JSON.stringify(toFieldStringRepresentation),
+        JSON.stringify(PersistedDeferredEvent.event),
+        Math.ceil(PersistedDeferredEvent.delay),
+      ],
     );
 
-    if (!result.rowCount) {
+    if (!result.affectedRows) {
       return null;
     }
 
-    return PostgresPersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
+    return PGlitePersistenceAdapter.parseSqlDeferredEventRow(
+      result.rows[0] as PGliteDeferredEventRow,
+    );
   }
 
   protected async deleteDeferredEvent(
     id: number,
-    connection: Pool | PoolClient = this.pool,
+    connection: PGlite = this.pool,
   ): Promise<number> {
     const result = await connection.query(
       'DELETE FROM "deferredEvents" WHERE "id"=$1 ',
       [id],
     );
 
-    return result.rowCount ?? 0;
+    return result.affectedRows ?? 0;
   }
 
   private static parseSqlChartRow<TContext, TEvent extends EventObject>(
-    row: PostgreSQLChartRow,
+    row: PGliteChartRow,
   ): PersistedChart<TContext, TEvent> {
     return {
       timestamp: Number(row.timestamp),
@@ -843,7 +794,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   }
 
   private static parseSqlDeferredEventRow(
-    row: PostgreSQLDeferredEventRow,
+    row: PGliteDeferredEventRow,
   ): PersistedDeferredEvent {
     return {
       id: row.id,

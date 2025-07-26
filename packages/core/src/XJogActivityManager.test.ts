@@ -1,9 +1,9 @@
-// import { MockPersistenceAdapter } from '@xjog/core-mock';
 import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 
 import { XJogActivityManager } from './XJogActivityManager';
-import { ActivityRef } from './ActivityRef';
+import { ActivityRef } from '@samihult/xjog-util';
 import { XJog } from './XJog';
+import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 
 function mockXJogWithActivityManager(
   persistence: PersistenceAdapter,
@@ -15,6 +15,10 @@ function mockXJogWithActivityManager(
     persistence,
     trace: trace ? console.log : () => {},
     sendEvent: jest.fn(),
+    emit: jest.fn(),
+    options: {
+      chartMutexTimeout: 100,
+    },
   };
 
   xJog.activityManager = new XJogActivityManager(xJog);
@@ -39,14 +43,17 @@ function mockActivity(): [ActivityRef, () => void] {
 
 describe('XJogActivityManager', () => {
   it('Can register and unregister activities', async () => {
-    const persistence = new MockPersistenceAdapter();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity] = mockActivity();
 
     await activityManager.registerActivity(activity);
+    const resultsBefore = await persistence.withTransaction(async (client) => {
+      return client.query('SELECT * FROM "ongoingActivities"');
+    });
 
-    expect(persistence.ongoingActivities.rows[0]).toMatchObject({
+    expect(resultsBefore.rows[0]).toMatchObject({
       activityId: 'activity-id',
       chartId: 'chart-id',
       machineId: 'machine-id',
@@ -59,7 +66,10 @@ describe('XJogActivityManager', () => {
 
     await activityManager.stopAndUnregisteredActivity(activity);
 
-    expect(persistence.ongoingActivities.rows).toHaveLength(0);
+    const resultsAfter = await persistence.withTransaction(async (client) => {
+      return client.query('SELECT * FROM "ongoingActivities"');
+    });
+    expect(resultsAfter.rows).toHaveLength(0);
 
     expect(activity.stop).toHaveBeenCalled();
     expect(activityManager.activityCount).toBe(0);
@@ -68,7 +78,7 @@ describe('XJogActivityManager', () => {
   });
 
   it('Can relay events to activities', async () => {
-    const persistence = new MockPersistenceAdapter();
+    const persistence = await PGlitePersistenceAdapter.connect();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity] = mockActivity();
