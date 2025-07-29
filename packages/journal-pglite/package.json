@@ -1,0 +1,19 @@
+{
+  "name": "journal-pglite",
+  "version": "0.0.1",
+  "description": "> TODO: description",
+  "author": "Juha Mustonen <juha.mustonen@iki.fi>",
+  "homepage": "",
+  "license": "MIT",
+  "main": "lib/journal-pglite.js",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "test": "node ./__tests__/journal-pglite.test.js"
+  }
+}
