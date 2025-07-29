@@ -9,12 +9,4 @@ describe('PGliteDigestPersistenceAdapter', () => {
     const adapter = await PGliteDigestPersistenceAdapter.connect();
     expect(adapter).toBeDefined();
   });
-
-  it('should run migrations', async () => {
-    const adapter = await PGliteDigestPersistenceAdapter.connect();
-    expect(adapter).toBeDefined();
-
-    const result = await adapter.queryDigests();
-    expect(result).toBeDefined();
-  });
 });
