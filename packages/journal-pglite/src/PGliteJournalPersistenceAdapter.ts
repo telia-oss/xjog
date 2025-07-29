@@ -69,11 +69,12 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         dbClient: pool as any,
         migrationsTable: 'migrations_journal',
         dir: path.join(__dirname, './migrations'),
+        singleTransaction: true,
         direction: 'up',
         log: (message) => adapter.trace({ in: 'connect', message }),
         // https://github.com/salsita/node-pg-migrate/issues/821
         checkOrder: false,
-        noLock: true,
+        noLock: false,
       });
     } finally {
       await pool.close();
@@ -323,6 +324,9 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   > {
     const startTime = await this.getCurrentTime();
 
+    // TODO: Implement
+    return () => Promise.resolve();
+
     let journalEntryIdPointer = 0;
     let fullStateEntryIdPointer = 0;
 
@@ -525,7 +529,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
       'SELECT extract(epoch from transaction_timestamp()) * 1000 AS "time"',
     );
 
-    if (!result.affectedRows) {
+    if (!result.rows.length) {
       throw new Error('Failed to read current time from database');
     }
 
