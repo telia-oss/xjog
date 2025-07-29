@@ -2,7 +2,6 @@ import path from 'path';
 import { ChartReference } from '@samihult/xjog-util';
 import { PGlite, PGliteOptions } from '@electric-sql/pglite';
 import migrationRunner from 'node-pg-migrate';
-import createSubscriber from 'pg-listen';
 
 import {
   DigestPersistenceAdapter,
@@ -40,7 +39,9 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
    * constructor.
    */
   static async connect(
-    poolConfiguration: PGliteOptions = {},
+    poolConfiguration: PGliteOptions = {
+      debug: 1,
+    },
   ): Promise<PGliteDigestPersistenceAdapter> {
     const pool = await PGlite.create(poolConfiguration);
     const adapter = new PGliteDigestPersistenceAdapter(poolConfiguration, pool);
@@ -85,7 +86,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         ') ON CONFLICT ( ' +
         '  "machineId", "chartId", "key"' +
         ') DO UPDATE SET ' +
-        '  value = :value, timestamp = transaction_timestamp() ',
+        '  value = $4, timestamp = transaction_timestamp() ',
       [ref.machineId, ref.chartId, key, value],
     );
 
@@ -97,7 +98,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
   ): Promise<void> {
     const payload = JSON.stringify(ref);
 
-    await this.pool.query("SELECT pg_notify('new-digest-entry', $1::text)", [
+    await this.pool.query("SELECT pg_notify('new_digest_entry', $1::text)", [
       payload,
     ]);
   }
@@ -205,6 +206,9 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     if (!expression) {
       return ['', {}];
     }
+
+    // TODO: Implement
+    return ['', {}];
 
     let queryString = '';
     const bindings: Record<string, string | number> = {};
@@ -395,10 +399,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
   }
 
   private async startObservingNewDigestEntries(): Promise<() => Promise<void>> {
-    const channel = 'new-digest-entry';
-
-    // TODO: Implement
-    //return () => Promise.resolve();
+    const channel = 'new_digest_entry';
 
     this.pool.listen(channel, (payload: string) => {
       this.newDigestEntriesSubject.next(JSON.parse(payload) as ChartReference);
