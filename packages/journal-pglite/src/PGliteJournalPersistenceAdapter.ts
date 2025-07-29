@@ -1,9 +1,7 @@
-import path from 'path';
 import { ChartReference } from '@samihult/xjog-util';
-import { Client, PoolConfig } from 'pg';
 import migrationRunner from 'node-pg-migrate';
+import path from 'path';
 import createSubscriber from 'pg-listen';
-import bind from 'pg-bind';
 
 import {
   FullStateEntry,
@@ -15,8 +13,9 @@ import {
   JournalQuery,
 } from '@samihult/xjog-journal-persistence';
 
-import { PGliteJournalRow } from './PGliteJournalRow';
+import { PGlite, PGliteOptions } from '@electric-sql/pglite';
 import { PGliteFullStateRow } from './PGliteFullStateRow';
+import { PGliteJournalRow } from './PGliteJournalRow';
 
 /**
  * Options for instantiating {@link PGliteJournalPersistenceAdapter}.
@@ -36,27 +35,11 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   private readonly stopObservingNewJournalEntries: Promise<() => Promise<void>>;
 
   public constructor(
-    private readonly listenerConfig: PoolConfig,
-    private readonly subscriptionConnection: Client,
-    private readonly readConnection: Client,
-    private readonly writeConnection: Client,
-    private readonly updateConnection: Client,
+    private readonly listenerConfig: PGliteOptions,
+    private readonly connection: PGlite,
     private options: PGliteJournalPersistenceAdapterOptions,
   ) {
     super();
-
-    subscriptionConnection.on('error', (err) =>
-      this.error('Subscription connection emitted error', { err }),
-    );
-    readConnection.on('error', (err) =>
-      this.error('Read connection emitted error', { err }),
-    );
-    writeConnection.on('error', (err) =>
-      this.error('Write connection emitted error', { err }),
-    );
-    updateConnection.on('error', (err) =>
-      this.error('Update connection emitted error', { err }),
-    );
 
     this.stopObservingNewJournalEntries =
       this.startObservingNewJournalEntries();
@@ -68,37 +51,22 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
    * constructor.
    */
   static async connect(
-    poolConfiguration: PoolConfig,
-    // TODO resolve
+    poolConfiguration: PGliteOptions = {},
     options: Partial<PGliteJournalPersistenceAdapterOptions> = {},
   ): Promise<PGliteJournalPersistenceAdapter> {
-    const subscriptionConnection = new Client(poolConfiguration);
-    const readConnection = new Client(poolConfiguration);
-    const writeConnection = new Client(poolConfiguration);
-    const updateConnection = new Client(poolConfiguration);
-
+    const pool = await PGlite.create(poolConfiguration);
     const adapter = new PGliteJournalPersistenceAdapter(
       poolConfiguration,
-      subscriptionConnection,
-      readConnection,
-      writeConnection,
-      updateConnection,
+      pool,
       options,
     );
-
-    await subscriptionConnection.connect();
-    await readConnection.connect();
-    await writeConnection.connect();
-    await updateConnection.connect();
 
     // TODO resolve separately
     options.keyFrameInterval ??= 100;
 
-    const migrationClient = new Client(poolConfiguration);
     try {
-      await migrationClient.connect();
       await migrationRunner({
-        dbClient: migrationClient,
+        dbClient: pool as any,
         migrationsTable: 'migrations_journal',
         dir: path.join(__dirname, './migrations'),
         direction: 'up',
@@ -108,9 +76,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         noLock: true,
       });
     } finally {
-      if (migrationClient) {
-        await migrationClient.end();
-      }
+      await pool.close();
     }
 
     return adapter;
@@ -121,16 +87,16 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
       await this.stopObservingNewJournalEntries
     )();
 
-    await this.subscriptionConnection.end();
-    await this.updateConnection.end();
-    await this.writeConnection.end();
-    await this.readConnection.end();
+    await this.connection.close();
   }
 
   protected async insertEntry(
     entry: JournalEntryInsertFields,
   ): Promise<JournalEntryAutoFields> {
-    const query = bind(
+    const result = await this.connection.query<{
+      id: number;
+      timestamp: number;
+    }>(
       'INSERT INTO "journalEntries" ' +
         '(' +
         '  "machineId", "chartId", "event",  ' +
@@ -138,26 +104,22 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         '  "actions" ' +
         ') ' +
         'VALUES (' +
-        '  :machineId, :chartId, :event, NULL, NULL, ' +
-        '  :stateDelta, :contextDelta, :actions ' +
+        '  $1, $2, $3, NULL, NULL, ' +
+        '  $4, $5, $6 ' +
         ') ' +
         'RETURNING ' +
         '  "id", extract(epoch from "timestamp") * 1000 as "timestamp" ',
-      {
-        machineId: entry.ref.machineId,
-        chartId: entry.ref.chartId,
-        event: entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
-        stateDelta: Buffer.from(JSON.stringify(entry.stateDelta)),
-        contextDelta: Buffer.from(JSON.stringify(entry.contextDelta)),
-        actions: entry.actions
-          ? Buffer.from(JSON.stringify(entry.actions))
-          : null,
-      },
+      [
+        entry.ref.machineId,
+        entry.ref.chartId,
+        entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
+        Buffer.from(JSON.stringify(entry.stateDelta)),
+        Buffer.from(JSON.stringify(entry.contextDelta)),
+        entry.actions ? Buffer.from(JSON.stringify(entry.actions)) : null,
+      ],
     );
 
-    const result = await this.writeConnection.query(query);
-
-    if (!result.rowCount) {
+    if (!result.rows.length) {
       throw new Error('Failed to write journal entry');
     }
 
@@ -168,7 +130,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   }
 
   protected async updateFullState(entry: FullStateEntry): Promise<void> {
-    const query = bind(
+    const result = await this.connection.query(
       'INSERT INTO "fullJournalStates" ' +
         '( ' +
         '  "id", "created", "timestamp", ' +
@@ -178,12 +140,11 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         '  "actions" ' +
         ') ' +
         'VALUES (' +
-        '  :id, to_timestamp(:timestamp::decimal / 1000), ' +
-        '  to_timestamp(:timestamp::decimal / 1000), ' +
-        '  :ownerId, :machineId, :chartId, ' +
-        '  :parentMachineId, :parentChartId, ' +
-        '  :event, :state, :context,' +
-        '  :actions ' +
+        '  $1, to_timestamp($2::decimal / 1000), ' +
+        '  to_timestamp($2::decimal / 1000), ' +
+        '  $3, $4, $5, ' +
+        '  $6, $7, ' +
+        '  $8, $9, $10, $11 ' +
         ') ON CONFLICT (' +
         '  "machineId", "chartId" ' +
         ') DO UPDATE SET ' +
@@ -191,32 +152,26 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         '  "event" = :event, "state" = :state, "context" = :context, ' +
         '  "actions" = :actions ' +
         'WHERE "fullJournalStates"."id" < :id ',
-      {
-        id: entry.id,
-        timestamp: entry.timestamp,
-        ownerId: entry.ownerId,
-        machineId: entry.ref.machineId,
-        chartId: entry.ref.chartId,
-        parentMachineId: entry.parentRef?.machineId ?? null,
-        parentChartId: entry.parentRef?.chartId ?? null,
-        event: entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
-        state: entry.state ? Buffer.from(JSON.stringify(entry.state)) : null,
-        context: entry.context
-          ? Buffer.from(JSON.stringify(entry.context))
-          : null,
-        actions: entry.actions
-          ? Buffer.from(JSON.stringify(entry.actions))
-          : null,
-      },
+      [
+        entry.id,
+        entry.timestamp,
+        entry.ownerId,
+        entry.ref.machineId,
+        entry.ref.chartId,
+        entry.parentRef?.machineId ?? null,
+        entry.parentRef?.chartId ?? null,
+        entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
+        entry.state ? Buffer.from(JSON.stringify(entry.state)) : null,
+        entry.context ? Buffer.from(JSON.stringify(entry.context)) : null,
+        entry.actions ? Buffer.from(JSON.stringify(entry.actions)) : null,
+      ],
     );
 
-    const result = await this.writeConnection.query(query);
-
-    if (!result.rowCount) {
+    if (!result.rows.length) {
       throw new Error('Failed to write journal full entry');
     }
 
-    return result.rows[0];
+    return;
   }
 
   protected async emitJournalEntryNotification(
@@ -229,10 +184,9 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
       chartId: ref.chartId,
     });
 
-    await this.updateConnection.query(
-      bind("SELECT pg_notify('new-journal-entry', :payload::text)", {
-        payload,
-      }),
+    await this.connection.query(
+      "SELECT pg_notify('new-journal-entry', $1:text)",
+      [payload],
     );
   }
 
@@ -244,20 +198,55 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     '  "actions" ';
 
   public async readEntry(id: number): Promise<JournalEntry | null> {
-    const result = await this.readConnection.query<PGliteJournalRow>(
-      bind(
-        'SELECT ' +
-          this.journalEntrySqlSelectFields +
-          'FROM "journalEntries" WHERE "id"=:id::bigint',
-        { id },
-      ),
+    const result = await this.connection.query<PGliteJournalRow>(
+      'SELECT ' +
+        this.journalEntrySqlSelectFields +
+        'FROM "journalEntries" WHERE "id"=$1',
+      [id],
     );
 
-    if (!result.rowCount) {
+    if (!result.rows.length) {
       return null;
     }
 
     return PGliteJournalPersistenceAdapter.parseSqlJournalRow(result.rows[0]);
+  }
+
+  /**
+   * Including the node-pg helper function
+   * https://github.com/brianc/node-postgres/blob/1b2bedc9c86b7378288e704252a8e4fafa27aa34/packages/pg/lib/utils.js#L175
+   */
+  private escapeLiteral(str: string): string {
+    let hasBackslash = false;
+    let escaped = "'";
+
+    if (str == null) {
+      return "''";
+    }
+
+    if (typeof str !== 'string') {
+      return "''";
+    }
+
+    for (let i = 0; i < str.length; i++) {
+      const c = str[i];
+      if (c === "'") {
+        escaped += c + c;
+      } else if (c === '\\') {
+        escaped += c + c;
+        hasBackslash = true;
+      } else {
+        escaped += c;
+      }
+    }
+
+    escaped += "'";
+
+    if (hasBackslash === true) {
+      escaped = ' E' + escaped;
+    }
+
+    return escaped;
   }
 
   public async queryEntries(query: JournalQuery): Promise<JournalEntry[]> {
@@ -268,7 +257,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         return [];
       }
 
-      result = await this.readConnection.query<PGliteJournalRow>(
+      result = await this.connection.query<PGliteJournalRow>(
         'SELECT ' +
           this.journalEntrySqlSelectFields +
           'FROM "journalEntries" ' +
@@ -276,8 +265,8 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
           query
             .map(
               ({ machineId, chartId }) =>
-                `(${this.readConnection.escapeLiteral(machineId)}, ` +
-                `${this.readConnection.escapeLiteral(chartId)})`,
+                `(${this.escapeLiteral(machineId)}, ` +
+                `${this.escapeLiteral(chartId)})`,
             )
             .join(', ') +
           ') ' +
@@ -285,50 +274,44 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
           'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" ',
       );
     } else {
-      result = await this.readConnection.query<PGliteJournalRow>(
-        bind(
-          'SELECT ' +
-            this.journalEntrySqlSelectFields +
-            'FROM "journalEntries" ' +
-            'WHERE TRUE ' +
-            (query.ref !== undefined
-              ? '  AND "machineId" = :machineId AND "chartId" = :chartId '
-              : '') +
-            (query.afterId !== undefined
-              ? '  AND "id" > :afterId::bigint '
-              : '') +
-            (query.afterAndIncludingId !== undefined
-              ? '  AND "id" >= :afterAndIncludingId::bigint '
-              : '') +
-            (query.beforeId !== undefined
-              ? '  AND "id" < :beforeId::bigint '
-              : '') +
-            (query.beforeAndIncludingId !== undefined
-              ? '  AND "id" <= :beforeAndIncludingId::bigint '
-              : '') +
-            (query.updatedAfterAndIncluding !== undefined
-              ? '  AND "timestamp" >= to_timestamp(:updatedAfterAndIncluding::decimal / 1000) '
-              : '') +
-            (query.updatedBeforeAndIncluding !== undefined
-              ? '  AND "timestamp" <= to_timestamp(:updatedBeforeAndIncluding::decimal / 1000) '
-              : '') +
-            'ORDER BY "id" ' +
-            (query.order ?? 'ASC') +
-            (query.offset !== undefined ? '  OFFSET :offset' : '') +
-            (query.limit !== undefined ? '  LIMIT :limit' : ''),
-          {
-            machineId: query.ref?.machineId,
-            chartId: query.ref?.chartId,
-            afterId: query.afterId,
-            afterAndIncludingId: query.afterAndIncludingId,
-            beforeId: query.beforeId,
-            beforeAndIncludingId: query.beforeAndIncludingId,
-            updatedAfterAndIncluding: query.updatedAfterAndIncluding,
-            updatedBeforeAndIncluding: query.updatedBeforeAndIncluding,
-            offset: query.offset,
-            limit: query.limit,
-          },
-        ),
+      result = await this.connection.query<PGliteJournalRow>(
+        'SELECT ' +
+          this.journalEntrySqlSelectFields +
+          'FROM "journalEntries" ' +
+          'WHERE TRUE ' +
+          (query.ref !== undefined
+            ? '  AND "machineId" = $1 AND "chartId" = $2 '
+            : '') +
+          (query.afterId !== undefined ? '  AND "id" > $3::bigint ' : '') +
+          (query.afterAndIncludingId !== undefined
+            ? '  AND "id" >= $4::bigint '
+            : '') +
+          (query.beforeId !== undefined ? '  AND "id" < $5::bigint ' : '') +
+          (query.beforeAndIncludingId !== undefined
+            ? '  AND "id" <= $6::bigint '
+            : '') +
+          (query.updatedAfterAndIncluding !== undefined
+            ? '  AND "timestamp" >= to_timestamp($7::decimal / 1000) '
+            : '') +
+          (query.updatedBeforeAndIncluding !== undefined
+            ? '  AND "timestamp" <= to_timestamp($8::decimal / 1000) '
+            : '') +
+          'ORDER BY "id" ' +
+          (query.order ?? 'ASC') +
+          (query.offset !== undefined ? '  OFFSET $9 ' : '') +
+          (query.limit !== undefined ? '  LIMIT $10 ' : ''),
+        [
+          query.ref?.machineId, // $1
+          query.ref?.chartId, // $2
+          query.afterId, // $3
+          query.afterAndIncludingId, // $4
+          query.beforeId, // $5
+          query.beforeAndIncludingId, // $6
+          query.updatedAfterAndIncluding, // $7
+          query.updatedBeforeAndIncluding, // $8
+          query.offset, // $9
+          query.limit, // $10
+        ],
       );
     }
 
@@ -411,20 +394,15 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   public async readFullState(
     ref: ChartReference,
   ): Promise<FullStateEntry | null> {
-    const result = await this.readConnection.query<PGliteFullStateRow>(
-      bind(
-        'SELECT ' +
-          this.fullStateEntrySqlSelectFields +
-          'FROM "fullJournalStates" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
+    const result = await this.connection.query<PGliteFullStateRow>(
+      'SELECT ' +
+        this.fullStateEntrySqlSelectFields +
+        'FROM "fullJournalStates" ' +
+        'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
+      [ref.machineId, ref.chartId],
     );
 
-    if (!result.rowCount) {
+    if (!result.affectedRows) {
       return null;
     }
 
@@ -441,7 +419,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         return [];
       }
 
-      result = await this.readConnection.query<PGliteFullStateRow>(
+      result = await this.connection.query<PGliteFullStateRow>(
         'SELECT ' +
           this.fullStateEntrySqlSelectFields +
           'FROM "fullJournalStates" ' +
@@ -449,8 +427,8 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
           query
             .map(
               ({ machineId, chartId }) =>
-                `(${this.readConnection.escapeLiteral(machineId)}, ` +
-                `${this.readConnection.escapeLiteral(chartId)})`,
+                `(${this.escapeLiteral(machineId)}, ` +
+                `${this.escapeLiteral(chartId)})`,
             )
             .join(', ') +
           ') ' +
@@ -458,67 +436,61 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
           'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" ',
       );
     } else {
-      result = await this.readConnection.query<PGliteFullStateRow>(
-        bind(
-          'SELECT ' +
-            this.fullStateEntrySqlSelectFields +
-            'FROM "fullJournalStates" ' +
-            'WHERE TRUE ' +
-            (query.ref !== undefined && query.machineId === undefined
-              ? '  AND "machineId" = :machineId AND "chartId" = :chartId '
-              : '') +
-            (query.parentRef !== undefined
-              ? '  AND "parentMachineId" = :parentMachineId AND "parentChartId" = :parentChartId '
-              : '') +
-            // In case of both machineId and ref, ref takes precedence
-            (query.machineId !== undefined && query.ref === undefined
-              ? '  AND "machineId" = :machineId '
-              : '') +
-            (query.afterId !== undefined
-              ? '  AND "id" > :afterId::bigint '
-              : '') +
-            (query.afterAndIncludingId !== undefined
-              ? '  AND "id" >= :afterAndIncludingId::bigint '
-              : '') +
-            (query.beforeId !== undefined
-              ? '  AND "id" < :beforeId::bigint '
-              : '') +
-            (query.beforeAndIncludingId !== undefined
-              ? '  AND "id" <= :beforeAndIncludingId::bigint '
-              : '') +
-            (query.createdAfterAndIncluding !== undefined
-              ? '  AND "created" >= to_timestamp(:createdAfterAndIncluding::decimal / 1000) '
-              : '') +
-            (query.createdBeforeAndIncluding !== undefined
-              ? '  AND "created" <= to_timestamp(:createdBeforeAndIncluding::decimal / 1000) '
-              : '') +
-            (query.updatedAfterAndIncluding !== undefined
-              ? '  AND "timestamp" >= to_timestamp(:updatedAfterAndIncluding::decimal / 1000)  '
-              : '') +
-            (query.updatedBeforeAndIncluding !== undefined
-              ? '  AND "timestamp" <= to_timestamp(:updatedBeforeAndIncluding::decimal / 1000) '
-              : '') +
-            'ORDER BY "id" ' +
-            (query.order ?? 'ASC') +
-            (query.offset !== undefined ? '  OFFSET :offset' : '') +
-            (query.limit !== undefined ? '  LIMIT :limit' : ''),
-          {
-            machineId: query.ref?.machineId ?? query.machineId,
-            chartId: query.ref?.chartId,
-            parentMachineId: query.parentRef?.machineId,
-            parentChartId: query.parentRef?.chartId,
-            afterId: query.afterId,
-            afterAndIncludingId: query.afterAndIncludingId,
-            beforeId: query.beforeId,
-            beforeAndIncludingId: query.beforeAndIncludingId,
-            createdAfterAndIncluding: query.createdAfterAndIncluding,
-            createdBeforeAndIncluding: query.createdBeforeAndIncluding,
-            updatedAfterAndIncluding: query.updatedAfterAndIncluding,
-            updatedBeforeAndIncluding: query.updatedBeforeAndIncluding,
-            offset: query.offset,
-            limit: query.limit,
-          },
-        ),
+      result = await this.connection.query<PGliteFullStateRow>(
+        'SELECT ' +
+          this.fullStateEntrySqlSelectFields +
+          'FROM "fullJournalStates" ' +
+          'WHERE TRUE ' +
+          (query.ref !== undefined && query.machineId === undefined
+            ? '  AND "machineId" = $1 AND "chartId" = $2 '
+            : '') +
+          (query.parentRef !== undefined
+            ? '  AND "parentMachineId" = $3 AND "parentChartId" = $4 '
+            : '') +
+          // In case of both machineId and ref, ref takes precedence
+          (query.machineId !== undefined && query.ref === undefined
+            ? '  AND "machineId" = $5 '
+            : '') +
+          (query.afterId !== undefined ? '  AND "id" > $6::bigint ' : '') +
+          (query.afterAndIncludingId !== undefined
+            ? '  AND "id" >= $7::bigint '
+            : '') +
+          (query.beforeId !== undefined ? '  AND "id" < $8::bigint ' : '') +
+          (query.beforeAndIncludingId !== undefined
+            ? '  AND "id" <= $9::bigint '
+            : '') +
+          (query.createdAfterAndIncluding !== undefined
+            ? '  AND "created" >= to_timestamp($10::decimal / 1000) '
+            : '') +
+          (query.createdBeforeAndIncluding !== undefined
+            ? '  AND "created" <= to_timestamp($11::decimal / 1000) '
+            : '') +
+          (query.updatedAfterAndIncluding !== undefined
+            ? '  AND "timestamp" >= to_timestamp($12::decimal / 1000)  '
+            : '') +
+          (query.updatedBeforeAndIncluding !== undefined
+            ? '  AND "timestamp" <= to_timestamp($13::decimal / 1000) '
+            : '') +
+          'ORDER BY "id" ' +
+          (query.order ?? 'ASC') +
+          (query.offset !== undefined ? '  OFFSET $13 ' : '') +
+          (query.limit !== undefined ? '  LIMIT $14 ' : ''),
+        [
+          query.ref?.machineId ?? query.machineId, // $1
+          query.ref?.chartId, // $2
+          query.parentRef?.machineId, // $3
+          query.parentRef?.chartId, // $4
+          query.afterId, // $5
+          query.afterAndIncludingId, // $6
+          query.beforeId, // $7
+          query.beforeAndIncludingId, // $8
+          query.createdAfterAndIncluding, // $9
+          query.createdBeforeAndIncluding, // $10
+          query.updatedAfterAndIncluding, // $11
+          query.updatedBeforeAndIncluding, // $12
+          query.offset, // $13
+          query.limit, // $14
+        ],
       );
     }
 
@@ -531,37 +503,29 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
    * @returns Number of deleted records
    */
   public async deleteByChart(ref: ChartReference): Promise<number> {
-    const fullStateResult = await this.updateConnection.query(
-      bind(
-        'DELETE FROM "fullJournalStates" ' +
-          'WHERE "machineId"=:machineId AND "chartId"=:chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
+    const fullStateResult = await this.connection.query(
+      'DELETE FROM "fullJournalStates" ' +
+        'WHERE "machineId"=$1 AND "chartId"=$2',
+      [ref.machineId, ref.chartId],
     );
 
-    const journalEntryResult = await this.updateConnection.query(
-      bind(
-        'DELETE FROM "journalEntries" ' +
-          'WHERE "machineId"=:machineId AND "chartId"=:chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
+    const journalEntryResult = await this.connection.query(
+      'DELETE FROM "journalEntries" ' + 'WHERE "machineId"=$1 AND "chartId"=$2',
+      [ref.machineId, ref.chartId],
     );
 
-    return fullStateResult.rowCount + journalEntryResult.rowCount;
+    return (
+      (fullStateResult.affectedRows ?? 0) +
+      (journalEntryResult.affectedRows ?? 0)
+    );
   }
 
   public async getCurrentTime(): Promise<number> {
-    const result = await this.readConnection.query<{ time: number }>(
+    const result = await this.connection.query<{ time: number }>(
       'SELECT extract(epoch from transaction_timestamp()) * 1000 AS "time"',
     );
 
-    if (!result.rowCount) {
+    if (!result.affectedRows) {
       throw new Error('Failed to read current time from database');
     }
 

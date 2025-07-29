@@ -22,7 +22,7 @@
     "format": "prettier --write 'src/**/*.ts'",
     "lint": "eslint src/**/*.ts && prettier --check src",
     "prePublishOnly": "yarn build",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",

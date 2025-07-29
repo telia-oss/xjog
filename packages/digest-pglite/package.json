@@ -7,13 +7,25 @@
   "license": "MIT",
   "main": "lib/digest-pglite.js",
   "directories": {
-    "lib": "lib",
-    "test": "__tests__"
+    "lib": "lib"
   },
   "files": [
     "lib"
   ],
   "scripts": {
-    "test": "node ./__tests__/digest-pglite.test.js"
+    "build": "yarn build:bin ; yarn build:files",
+    "build:bin": "tsc",
+    "build:files": "cpx-fixed 'src/**/*.sql' lib",
+    "clean": "rm -rf node_modules lib",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.5"
+  },
+  "devDependencies": {
+    "cpx-fixed": "^1.6.0",
+    "jest": "^28.1.2",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.7.4"
   }
 }
