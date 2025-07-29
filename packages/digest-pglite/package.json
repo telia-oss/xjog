@@ -1,5 +1,5 @@
 {
-  "name": "digest-pglite",
+  "name": "@samihult/xjog-digest-pglite",
   "version": "0.0.1",
   "description": "Digest package with PGlite backend",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",

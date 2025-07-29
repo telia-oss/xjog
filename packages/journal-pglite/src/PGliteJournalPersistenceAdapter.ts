@@ -30,7 +30,7 @@ export type PGliteJournalPersistenceAdapterOptions = {
  */
 export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   public readonly component = 'journal/persistence';
-  public readonly type = 'pg';
+  public readonly type = 'pglite';
 
   private readonly stopObservingNewJournalEntries: Promise<() => Promise<void>>;
 

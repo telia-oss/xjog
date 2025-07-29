@@ -21,7 +21,7 @@ import { PGliteDigestRow } from './PGliteDigestRow';
  */
 export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
   public readonly component = 'digest/persistence';
-  public readonly type = 'pg';
+  public readonly type = 'pglite';
 
   private readonly stopObservingNewDigestEntries: Promise<() => Promise<void>>;
 
@@ -51,10 +51,11 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         migrationsTable: 'migrations_digest',
         dir: path.join(__dirname, './migrations'),
         direction: 'up',
+        singleTransaction: true,
         log: (message) => adapter.trace({ in: 'connect', message }),
         // https://github.com/salsita/node-pg-migrate/issues/821
         checkOrder: false,
-        noLock: true,
+        noLock: false,
       });
     } finally {
       await pool.close();
@@ -395,6 +396,10 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
 
   private async startObservingNewDigestEntries(): Promise<() => Promise<void>> {
     const channel = 'new-digest-entry';
+
+    // TODO: Implement
+    return () => Promise.resolve();
+
     const digestSubscriber = createSubscriber(this.listenerConfig);
 
     // Received a notification of a new journal entry
