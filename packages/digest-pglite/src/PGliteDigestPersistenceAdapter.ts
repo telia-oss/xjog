@@ -398,8 +398,13 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     const channel = 'new-digest-entry';
 
     // TODO: Implement
-    return () => Promise.resolve();
+    //return () => Promise.resolve();
 
+    this.pool.listen(channel, (payload: string) => {
+      this.newDigestEntriesSubject.next(JSON.parse(payload) as ChartReference);
+    });
+
+    /*
     const digestSubscriber = createSubscriber(this.listenerConfig);
 
     // Received a notification of a new journal entry
@@ -412,9 +417,10 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     });
 
     digestSubscriber.connect().then(() => digestSubscriber.listenTo(channel));
+    */
 
     return async () => {
-      await digestSubscriber.close();
+      await this.pool.unlisten(channel);
     };
   }
 
