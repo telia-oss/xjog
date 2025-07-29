@@ -39,9 +39,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
    * constructor.
    */
   static async connect(
-    poolConfiguration: PGliteOptions = {
-      debug: 1,
-    },
+    poolConfiguration: PGliteOptions = {},
   ): Promise<PGliteDigestPersistenceAdapter> {
     const pool = await PGlite.create(poolConfiguration);
     const adapter = new PGliteDigestPersistenceAdapter(poolConfiguration, pool);
