@@ -132,17 +132,13 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     transactionConnectionForNesting?: Transaction,
   ): Promise<ReturnType> {
     return await this.pool.transaction(async (tx: Transaction) => {
-      await tx.query('BEGIN');
       let returnValue: ReturnType;
 
       try {
         returnValue = await routine(tx as unknown as PGlite);
-        await tx.query('COMMIT');
       } catch (error) {
-        await tx.query('ROLLBACK');
-        throw error;
-      } finally {
         await tx.rollback();
+        throw error;
       }
 
       return returnValue;
@@ -589,7 +585,7 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     return result.affectedRows ?? 0;
   }
 
-  /** Corresponds to {@link PostgreSQLDeferredEventRow} */
+  /** Corresponds to {@link PGliteDeferredEventRow} */
   private readonly deferredEventSelectFields =
     '  "id", "machineId", "chartId", "lock", ' +
     '  "eventId", "eventTo", "event", "delay", ' +
@@ -609,7 +605,7 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       [id],
     );
 
-    if (!result.affectedRows) {
+    if (!result.rows.length) {
       return null;
     }
 
@@ -648,7 +644,11 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         this.deferredEventSelectFields +
         'FROM updated ' +
         'ORDER BY "due" ASC, "id" ASC',
-      [lookAhead, batchSize, instanceId],
+      [
+        lookAhead, // $1
+        batchSize, // $2
+        instanceId, // $3
+      ],
     );
 
     return result.rows.map(PGlitePersistenceAdapter.parseSqlDeferredEventRow);
@@ -739,16 +739,16 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         'RETURNING ' +
         this.deferredEventSelectFields,
       [
-        PersistedDeferredEvent.ref.machineId,
-        PersistedDeferredEvent.ref.chartId,
-        JSON.stringify(PersistedDeferredEvent.eventId),
-        JSON.stringify(toFieldStringRepresentation),
-        JSON.stringify(PersistedDeferredEvent.event),
-        Math.ceil(PersistedDeferredEvent.delay),
+        PersistedDeferredEvent.ref.machineId, // $1
+        PersistedDeferredEvent.ref.chartId, // $2
+        JSON.stringify(PersistedDeferredEvent.eventId), // $3
+        JSON.stringify(toFieldStringRepresentation), // $4
+        JSON.stringify(PersistedDeferredEvent.event), // $5
+        Math.ceil(PersistedDeferredEvent.delay), // $6
       ],
     );
 
-    if (!result.affectedRows) {
+    if (!result.rows.length) {
       return null;
     }
 
