@@ -57,7 +57,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         noLock: false,
       });
     } finally {
-      await pool.close();
+      // Do not close the pool here, it will be closed by the adapter
     }
 
     return adapter;
@@ -124,7 +124,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
   private readonly digestEntrySqlSelectFields =
     'extract(epoch from "created") * 1000 AS "created", ' +
     'extract(epoch from "timestamp") * 1000 AS "timestamp", ' +
-    '"machineId", "chartId", "key, "value" ';
+    '"machineId", "chartId", "key", "value" ';
 
   public async readDigest(
     ref: ChartReference,
@@ -134,7 +134,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       'SELECT ' +
         this.digestEntrySqlSelectFields +
         'FROM "digests" ' +
-        'WHERE "machineId" = $1 AND "chartId" = $2 AND key = $3 ',
+        'WHERE "machineId" = $1 AND "chartId" = $2 AND "key" = $3 ',
       [ref.machineId, ref.chartId, key],
     );
 
@@ -204,9 +204,6 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     if (!expression) {
       return ['', {}];
     }
-
-    // TODO: Implement
-    return ['', {}];
 
     let queryString = '';
     const bindings: Record<string, string | number> = {};
@@ -402,21 +399,6 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     this.pool.listen(channel, (payload: string) => {
       this.newDigestEntriesSubject.next(JSON.parse(payload) as ChartReference);
     });
-
-    /*
-    const digestSubscriber = createSubscriber(this.listenerConfig);
-
-    // Received a notification of a new journal entry
-    digestSubscriber.notifications.on(channel, async (ref: ChartReference) => {
-      this.newDigestEntriesSubject.next(ref);
-    });
-
-    digestSubscriber.events.on('error', (error) => {
-      this.newDigestEntriesSubject.error(error);
-    });
-
-    digestSubscriber.connect().then(() => digestSubscriber.listenTo(channel));
-    */
 
     return async () => {
       await this.pool.unlisten(channel);
