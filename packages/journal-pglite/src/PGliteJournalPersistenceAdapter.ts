@@ -2,8 +2,6 @@ import { EventObject, StateValue } from 'xstate';
 import { ChartReference, XJogStateChangeAction } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import path from 'path';
-import createSubscriber from 'pg-listen';
-import { Operation } from 'rfc6902';
 
 import {
   FullStateEntry,
@@ -151,26 +149,26 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         ') ON CONFLICT (' +
         '  "machineId", "chartId" ' +
         ') DO UPDATE SET ' +
-        '  "id" = :id, "timestamp" = to_timestamp(:timestamp::decimal / 1000), ' +
-        '  "event" = :event, "state" = :state, "context" = :context, ' +
-        '  "actions" = :actions ' +
-        'WHERE "fullJournalStates"."id" < :id ',
+        '  "id" = $1, "timestamp" = to_timestamp($2::decimal / 1000), ' +
+        '  "event" = $8, "state" = $9, "context" = $10, ' +
+        '  "actions" = $11 ' +
+        'WHERE "fullJournalStates"."id" < $1 ',
       [
-        entry.id,
-        entry.timestamp,
-        entry.ownerId,
-        entry.ref.machineId,
-        entry.ref.chartId,
-        entry.parentRef?.machineId ?? null,
-        entry.parentRef?.chartId ?? null,
-        entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
-        entry.state ? Buffer.from(JSON.stringify(entry.state)) : null,
-        entry.context ? Buffer.from(JSON.stringify(entry.context)) : null,
-        entry.actions ? Buffer.from(JSON.stringify(entry.actions)) : null,
+        entry.id, // $1
+        entry.timestamp, // $2
+        entry.ownerId, // $3
+        entry.ref.machineId, // $4
+        entry.ref.chartId, // $5
+        entry.parentRef?.machineId ?? null, // $6
+        entry.parentRef?.chartId ?? null, // $7
+        entry.event ? Buffer.from(JSON.stringify(entry.event)) : null, // $8
+        entry.state ? Buffer.from(JSON.stringify(entry.state)) : null, // $9
+        entry.context ? Buffer.from(JSON.stringify(entry.context)) : null, // $10
+        entry.actions ? Buffer.from(JSON.stringify(entry.actions)) : null, // $11
       ],
     );
 
-    if (!result.rows.length) {
+    if (!result.affectedRows) {
       throw new Error('Failed to write journal full entry');
     }
 
@@ -188,7 +186,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     });
 
     await this.connection.query(
-      "SELECT pg_notify('new-journal-entry', $1:text)",
+      "SELECT pg_notify('new_journal_entry', $1:text)",
       [payload],
     );
   }
@@ -326,14 +324,10 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   > {
     const startTime = await this.getCurrentTime();
 
-    // TODO: Implement
-    return () => Promise.resolve();
-
     let journalEntryIdPointer = 0;
     let fullStateEntryIdPointer = 0;
 
-    const channel = 'new-journal-entry';
-    const journalSubscriber = createSubscriber(this.listenerConfig);
+    const channel = 'new_journal_entry';
 
     const yieldJournalEntries = (journalEntries: JournalEntry[]) => {
       for (const journalEntry of journalEntries) {
@@ -356,7 +350,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     };
 
     // Received a notification of a new journal entry
-    journalSubscriber.notifications.on(channel, async () => {
+    this.connection.listen(channel, async () => {
       this.queryEntries({
         afterId: journalEntryIdPointer,
         updatedAfterAndIncluding: startTime,
@@ -378,15 +372,8 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
       });
     });
 
-    journalSubscriber.events.on('error', (error) => {
-      this.newJournalEntriesSubject.error(error);
-      this.newFullStateEntriesSubject.error(error);
-    });
-
-    journalSubscriber.connect().then(() => journalSubscriber.listenTo(channel));
-
     return async () => {
-      await journalSubscriber.close();
+      await this.connection.unlisten(channel);
     };
   }
 
@@ -394,6 +381,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   private readonly fullStateEntrySqlSelectFields =
     '  "id", extract(epoch from "created") * 1000 as "created", ' +
     '  extract(epoch from "timestamp") * 1000 as "timestamp", ' +
+    '  "ownerId", ' +
     '  "machineId", "chartId", "parentMachineId", "parentChartId", ' +
     '  "event", "state", "context", "actions" ';
 
@@ -547,20 +535,22 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     oldContext: any | null,
     newState: StateValue | null,
     newContext: unknown | null,
-    actions: XJogStateChangeAction[] | null,
+    actions: XJogStateChangeAction[],
     cid?: string,
   ): Promise<void> {
     // TODO: Figure out what data to pass in here
-    const entry = await this.insertEntry({
+    const now = new Date().getTime();
+    const entry = await this.updateFullState({
+      id: 1,
+      created: now,
+      timestamp: now,
+      ownerId,
       ref,
+      parentRef,
       event,
-      stateDelta: oldState
-        ? [{ op: 'replace', path: '', value: oldState }]
-        : [],
-      contextDelta: oldContext
-        ? [{ op: 'replace', path: '', value: oldContext }]
-        : [],
-      actions: actions ?? [],
+      state: newState,
+      context: newContext,
+      actions,
     });
   }
 
@@ -586,6 +576,8 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   }
 
   static parseSqlFullStateRow(row: PGliteFullStateRow): FullStateEntry {
+    const decoder = new TextDecoder();
+
     return {
       id: Number(row.id),
       created: Number(row.created),
@@ -605,10 +597,10 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
           }
         : null,
 
-      event: JSON.parse(String(row.event)),
-      state: row.state ? JSON.parse(String(row.state)) : null,
-      context: row.context ? JSON.parse(String(row.context)) : null,
-      actions: row.actions ? JSON.parse(String(row.actions)) : null,
+      event: row.event ? JSON.parse(decoder.decode(row.event)) : null,
+      state: row.state ? JSON.parse(decoder.decode(row.state)) : null,
+      context: row.context ? JSON.parse(decoder.decode(row.context)) : null,
+      actions: row.actions ? JSON.parse(decoder.decode(row.actions)) : null,
     };
   }
 }

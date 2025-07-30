@@ -19,27 +19,29 @@ describe('PGliteJournalPersistenceAdapter', () => {
 
   it('should read full state', async () => {
     const adapter = await PGliteJournalPersistenceAdapter.connect();
-    const ownerId = 'test';
+    const ownerId = 'ownerId';
     const ref = {
-      machineId: 'test',
-      chartId: 'test',
+      machineId: 'machineId',
+      chartId: 'chartId',
     };
     const parentRef = null;
     const event = {
-      type: 'test',
+      type: 'event',
     };
     const oldState = {
-      foo: 'bar',
+      state: 'old',
     };
     const oldContext = {
-      foo: 'bar',
+      ctx: 'old',
     };
     const newState = {
-      foo: 'bar',
+      state: 'new',
     };
-    const newContext = {};
+    const newContext = {
+      ctx: 'new',
+    };
     const actions: XJogStateChangeAction[] = [];
-    const cid = 'test';
+    const cid = 'cid';
 
     await adapter.record(
       ownerId,
@@ -53,16 +55,26 @@ describe('PGliteJournalPersistenceAdapter', () => {
       actions,
       cid,
     );
-    /*     const fullState = await adapter.readFullState(ref);
+    const fullState = await adapter.readFullState(ref);
     expect(fullState).toMatchObject({
+      id: expect.any(Number),
+      created: expect.any(Number),
+      timestamp: expect.any(Number),
       ownerId,
-      ref,
-      parentRef,
-      event,
-      oldState,
-      oldContext,
-      newState,
-      newContext,
-    }); */
+      event: {
+        type: 'event',
+      },
+      state: {
+        state: 'new',
+      },
+      context: {
+        ctx: 'new',
+      },
+      actions: [],
+      ref: {
+        machineId: 'machineId',
+        chartId: 'chartId',
+      },
+    });
   });
 });
