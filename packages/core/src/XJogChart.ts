@@ -510,6 +510,9 @@ export class XJogChart<
     const trace = (...args: Array<string | Record<string, unknown>>) =>
       this.trace(logPayload, ...args);
 
+    const warn = (...args: Array<string | Record<string, unknown>>) =>
+      this.warn(logPayload, ...args);
+
     const error = (...args: Array<string | Record<string, unknown>>) =>
       this.error(logPayload, ...args);
 
@@ -525,7 +528,7 @@ export class XJogChart<
             action,
           });
           if (rule) {
-            trace({
+            warn({
               message: `Matched simulation rule, will ${rule.action} event ${event}`,
               eventName,
               rule,
