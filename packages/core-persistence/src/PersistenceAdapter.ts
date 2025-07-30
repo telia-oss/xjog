@@ -458,7 +458,7 @@ export abstract class PersistenceAdapter<
 
   public async isChartPresent(
     ref: ChartReference,
-    connection?: ConnectionType
+    connection?: ConnectionType,
   ) {
     return await this.chartExists(ref, connection);
   }
@@ -608,17 +608,17 @@ export abstract class PersistenceAdapter<
         delay: deferredEventRow.delay,
       });
 
-      const insertedEventRow = await this.insertDeferredEvent({
-        ref: deferredEventRow.ref,
-
-        eventId: deferredEventRow.eventId ?? uuidV4(),
-        eventTo: deferredEventRow.eventTo ?? null,
-        event: deferredEventRow.event,
-
-        delay: deferredEventRow.delay,
-
-        lock: deferredEventRow.lock,
-      });
+      const insertedEventRow = await this.insertDeferredEvent(
+        {
+          ref: deferredEventRow.ref,
+          eventId: deferredEventRow.eventId ?? uuidV4(),
+          eventTo: deferredEventRow.eventTo ?? null,
+          event: deferredEventRow.event,
+          delay: deferredEventRow.delay,
+          lock: deferredEventRow.lock,
+        },
+        connection,
+      );
 
       if (!insertedEventRow) {
         throw new Error(

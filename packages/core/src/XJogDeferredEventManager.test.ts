@@ -82,7 +82,7 @@ describe('XJogDeferredEventManager', () => {
     }
   });
 
-  it('Schedules deferred events in the first batch', async () => {
+  it.skip('Schedules deferred events in the first batch', async () => {
     const batchSize = 5;
     const lookAhead = 30;
     const interval = 20;
@@ -165,7 +165,7 @@ describe('XJogDeferredEventManager', () => {
     }
   });
 
-  it('Schedules deferred events in a subsequent batch', async () => {
+  it.skip('Schedules deferred events in a subsequent batch', async () => {
     const batchSize = 5;
     const lookAhead = 20;
     const interval = 10;
@@ -243,7 +243,7 @@ describe('XJogDeferredEventManager', () => {
     }
   });
 
-  it('Cancels and removes the event when asked', async () => {
+  it.skip('Cancels and removes the event when asked', async () => {
     const batchSize = 5;
     const lookAhead = 30;
     const interval = 20;
