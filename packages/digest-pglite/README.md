@@ -1,11 +1,3 @@
-# `digest-pglite`
+# XJog PGlite Digest Persistence
 
-> TODO: description
-
-## Usage
-
-```
-const digestPglite = require('digest-pglite');
-
-// TODO: DEMONSTRATE API
-```
+Package provides a PGlite persistence layer for XJog digest module.

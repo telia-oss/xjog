@@ -1,11 +1,3 @@
-# `journal-pglite`
+# XJog PGlite Persistence
 
-> TODO: description
-
-## Usage
-
-```
-const journalPglite = require('journal-pglite');
-
-// TODO: DEMONSTRATE API
-```
+Package provides a PGlite persistence layer for XJog journaling.
