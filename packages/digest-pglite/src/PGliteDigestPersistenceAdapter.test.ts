@@ -41,4 +41,16 @@ describe('PGliteDigestPersistenceAdapter', () => {
     await testAdapter.clear(chartReference, ['foo']);
     expect(testAdapter.readDigest(chartReference, 'foo')).resolves.toBeNull();
   });
+
+  it('should filter digests', async () => {
+    const testAdapter = await PGliteDigestPersistenceAdapter.connect();
+    await testAdapter.record(chartReference, { foo: 'bar' });
+    await testAdapter.record(chartReference, { foo: 'baz' });
+
+    const result = await testAdapter.queryDigests();
+    expect(result).toHaveLength(1);
+    expect(result[0].chartId).toBe(chartReference.chartId);
+    expect(result[0].machineId).toBe(chartReference.machineId);
+    expect(result[0].timestamp).toBeDefined();
+  });
 });

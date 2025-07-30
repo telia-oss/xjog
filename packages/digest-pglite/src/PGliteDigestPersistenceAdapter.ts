@@ -185,10 +185,11 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         (digestQuery?.offset !== undefined ? '  OFFSET $3 ' : '') +
         (digestQuery?.limit !== undefined ? '  LIMIT $4 ' : ''),
       [
-        digestQuery?.machineId,
-        digestQuery?.chartId,
-        digestQuery?.offset,
-        digestQuery?.limit,
+        // Only add bindings if they are defined, PGlite does not allow non-used bindings
+        ...(digestQuery?.machineId ? [digestQuery.machineId] : []),
+        ...(digestQuery?.chartId ? [digestQuery.chartId] : []),
+        ...(digestQuery?.offset ? [digestQuery.offset] : []),
+        ...(digestQuery?.limit ? [digestQuery.limit] : []),
         // ...filterBindings,
         // TODO --^
       ],
