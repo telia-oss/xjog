@@ -1,37 +1,30 @@
 {
-  "name": "@samihult/xjog-core-pglite",
-  "version": "0.1.0",
-  "description": "Lightweight PG adapter",
-  "keywords": [
-    "pg"
-  ],
+  "name": "@samihult/xjog-digest-pglite",
+  "version": "0.0.1",
+  "description": "Digest package with PGlite backend",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
-  "private": false,
   "homepage": "",
   "license": "MIT",
-  "main": "lib",
+  "main": "lib/digest-pglite.js",
   "directories": {
     "lib": "lib"
   },
   "files": [
-    "lib/**/*"
+    "lib"
   ],
   "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf node_modules lib",
-    "format": "prettier --write 'src/**/*.ts'",
+    "build": "yarn build:bin ; yarn build:files",
+    "build:bin": "tsc",
     "lint": "eslint src/**/*.ts && prettier --check src",
-    "prePublishOnly": "yarn build",
+    "build:files": "cpx-fixed 'src/**/*.sql' lib",
+    "clean": "rm -rf node_modules lib",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.5",
-    "@samihult/xjog-core-persistence": "^0.0.38",
-    "@samihult/xjog-util": "^0.0.33",
-    "node-pg-migrate": "^6.2.1"
+    "@electric-sql/pglite": "^0.3.5"
   },
   "devDependencies": {
-    "xstate": "4.26.1",
+    "cpx-fixed": "^1.6.0",
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.2.223",
     "@swc/jest": "^0.2.22",
