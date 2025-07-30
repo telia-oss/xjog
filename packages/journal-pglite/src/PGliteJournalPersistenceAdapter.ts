@@ -1,7 +1,9 @@
-import { ChartReference } from '@samihult/xjog-util';
+import { EventObject, StateValue } from 'xstate';
+import { ChartReference, XJogStateChangeAction } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import path from 'path';
 import createSubscriber from 'pg-listen';
+import { Operation } from 'rfc6902';
 
 import {
   FullStateEntry,
@@ -77,7 +79,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         noLock: false,
       });
     } finally {
-      await pool.close();
+      // Do not close the pool here, it will be closed by the adapter
     }
 
     return adapter;
@@ -402,11 +404,11 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
       'SELECT ' +
         this.fullStateEntrySqlSelectFields +
         'FROM "fullJournalStates" ' +
-        'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
+        'WHERE "machineId" = $1 AND "chartId" = $2 ',
       [ref.machineId, ref.chartId],
     );
 
-    if (!result.affectedRows) {
+    if (!result.rows.length) {
       return null;
     }
 
@@ -534,6 +536,32 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     }
 
     return Number(result.rows[0].time);
+  }
+
+  public async record(
+    ownerId: string,
+    ref: ChartReference,
+    parentRef: ChartReference | null,
+    event: EventObject | null,
+    oldState: StateValue | null,
+    oldContext: any | null,
+    newState: StateValue | null,
+    newContext: unknown | null,
+    actions: XJogStateChangeAction[] | null,
+    cid?: string,
+  ): Promise<void> {
+    // TODO: Figure out what data to pass in here
+    const entry = await this.insertEntry({
+      ref,
+      event,
+      stateDelta: oldState
+        ? [{ op: 'replace', path: '', value: oldState }]
+        : [],
+      contextDelta: oldContext
+        ? [{ op: 'replace', path: '', value: oldContext }]
+        : [],
+      actions: actions ?? [],
+    });
   }
 
   static parseSqlJournalRow(row: PGliteJournalRow): JournalEntry {
