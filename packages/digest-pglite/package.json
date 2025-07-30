@@ -1,0 +1,40 @@
+{
+  "name": "@samihult/xjog-digest-pglite",
+  "version": "0.0.1",
+  "description": "Digest package with PGlite backend",
+  "author": "Juha Mustonen <juha.mustonen@iki.fi>",
+  "homepage": "",
+  "license": "MIT",
+  "main": "lib/digest-pglite.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "yarn build:bin ; yarn build:files",
+    "build:bin": "tsc",
+    "lint": "eslint src/**/*.ts && prettier --check src",
+    "build:files": "cpx-fixed 'src/**/*.sql' lib",
+    "clean": "rm -rf node_modules lib",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.5"
+  },
+  "devDependencies": {
+    "cpx-fixed": "^1.6.0",
+    "@swc/cli": "^0.1.57",
+    "@swc/core": "^1.2.223",
+    "@swc/jest": "^0.2.22",
+    "@types/node": "^16.7.10",
+    "@types/jest": "^27.0.1",
+    "jest": "^28.1.2",
+    "ts-node": "^10.7.0",
+    "prettier": "^2.3.2",
+    "typescript": "^4.7.4",
+    "eslint": "^8.25.0",
+    "eslint-config-prettier": "^8.5.0"
+  }
+}

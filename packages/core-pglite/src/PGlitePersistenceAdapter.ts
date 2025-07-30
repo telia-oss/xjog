@@ -68,7 +68,7 @@ type PGliteDeferredEventRow = {
  */
 export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   public readonly component = 'persistence';
-  public readonly type = 'pg';
+  public readonly type = 'pglite';
 
   public constructor(
     public readonly pool: PGlite,
