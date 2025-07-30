@@ -191,7 +191,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         ...(digestQuery?.offset ? [digestQuery.offset] : []),
         ...(digestQuery?.limit ? [digestQuery.limit] : []),
         // ...filterBindings,
-        // TODO --^
+        // TODO: Implement filterBindings
       ],
     );
 
