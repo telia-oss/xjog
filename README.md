@@ -42,7 +42,7 @@ On roadmap:
 
 - **PGlite**
 
-  Lightweight but fairly complete Postgres compatible database for development
+  Lightweight yet fairly PostgreSQL-compatible database for development
   and testing purposes.
 
 ## Usage
