@@ -48,7 +48,7 @@ On roadmap:
 ## Usage
 
 ```shell script
-yarn add xstate @samihult/xjog @samihult/xjog-core-pglite
+yarn add xstate@4 @samihult/xjog @samihult/xjog-core-pglite
 ```
 
 ```typescript
