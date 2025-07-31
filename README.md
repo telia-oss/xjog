@@ -27,7 +27,6 @@ The main features:
 Modules:
 
 - Core
--
 
 On roadmap:
 
@@ -41,15 +40,21 @@ On roadmap:
   Robust and suitable for production. Support for deltas and listening for
   changes on database level (external process can track changes).
 
+- **PGlite**
+
+  Lightweight yet fairly PostgreSQL-compatible database for development
+  and testing purposes.
+
 ## Usage
 
 ```shell script
-yarn add xstate xjog
+yarn add xstate@4 @samihult/xjog @samihult/xjog-core-pglite
 ```
 
 ```typescript
+import { XJog } from '@samihult/xjog';
+import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { createMachine } from 'xstate';
-import { SQLitePersistenceAdapter, XJog } from 'xjog';
 
 // Configure a regular xState chart
 export const doorMachine = createMachine({
@@ -70,22 +75,23 @@ export const doorMachine = createMachine({
 });
 
 // Use default in-memory database
-const persistence = await SQLitePersistenceAdapter.connect();
+const persistence = await PGlitePersistenceAdapter.connect();
 
-const xJog = new XJog(persistence);
+const xJog = new XJog({ persistence });
 const door = await xJog.registerMachine(doorMachine);
 
 await xJog.start();
 
 // Create a door
 const frontDoor = await door.createChart();
-frontDoor.subscribe((stateUpdate) => {
-  console.log('Door is', stateUpdate.state.value);
+door.changes.subscribe((stateUpdate) => {
+  console.log('Door is', stateUpdate);
 });
 
 await frontDoor.send('open');
 await frontDoor.send('close');
 
 // Stop everything
-await xJog.kill();
+await frontDoor.stop();
+await xJog.shutdown();
 ```
