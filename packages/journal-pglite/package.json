@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-pglite",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "> TODO: description",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
   "homepage": "",
@@ -21,7 +21,8 @@
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.5"
+    "@electric-sql/pglite": "^0.3.5",
+    "node-pg-migrate": "^6.2.1"
   },
   "devDependencies": {
     "cpx-fixed": "^1.6.0",
