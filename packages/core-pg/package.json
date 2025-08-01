@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-core-pg",
-  "version": "0.0.65",
+  "version": "0.0.66",
   "description": "XJog chart Postgres persistence",
   "engines": {
     "npm": ">=8.19.4",
@@ -29,7 +29,7 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-core-persistence": "^0.0.41",
+    "@samihult/xjog-core-persistence": "^0.0.42",
     "@samihult/xjog-util": "^0.0.36",
     "node-pg-migrate": "^6.2.1",
     "pg": "^8.7.3",

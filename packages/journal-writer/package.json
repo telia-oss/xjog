@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-writer",
-  "version": "0.0.75",
+  "version": "0.0.76",
   "description": "XJog chart journal writer",
   "engines": {
     "npm": ">=8.19.4",
@@ -27,7 +27,7 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog": "^0.0.321",
+    "@samihult/xjog": "^0.0.322",
     "@samihult/xjog-journal-persistence": "^0.0.55",
     "@samihult/xjog-util": "^0.0.36"
   },

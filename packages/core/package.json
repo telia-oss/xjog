@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog",
-  "version": "0.0.321",
+  "version": "0.0.322",
   "description": "XState chart runner for long-running charts",
   "engines": {
     "npm": ">=8.19.4",
@@ -30,7 +30,7 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-core-persistence": "^0.0.41",
+    "@samihult/xjog-core-persistence": "^0.0.42",
     "@samihult/xjog-util": "^0.0.36",
     "async-mutex": "^0.3.2",
     "rxjs": "^7.4.0",
@@ -38,7 +38,7 @@
     "xstate": "4.26.1"
   },
   "devDependencies": {
-    "@samihult/xjog-core-pglite": "^0.0.4",
+    "@samihult/xjog-core-pglite": "^0.0.5",
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.2.223",
     "@swc/jest": "^0.2.22",
