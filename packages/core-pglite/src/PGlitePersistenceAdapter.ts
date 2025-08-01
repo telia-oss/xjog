@@ -1,3 +1,4 @@
+export type { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
 import { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
 import migrationRunner from 'node-pg-migrate';
 import path from 'path';
