@@ -1,15 +1,14 @@
-import { Event, EventObject, SCXML, Subscription } from 'xstate';
-import { Mutex, MutexInterface, withTimeout } from 'async-mutex';
-import { getEventType, toSCXMLEvent } from 'xstate/lib/utils';
-import * as actions from 'xstate/lib/actions';
-
 import {
-  ChartReference,
+  type ActivityRef,
+  type ChartReference,
   getCorrelationIdentifier,
-  ActivityRef,
 } from '@samihult/xjog-util';
+import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
+import type { Event, EventObject, SCXML, Subscription } from 'xstate';
+import * as actions from 'xstate/lib/actions';
+import { getEventType, toSCXMLEvent } from 'xstate/lib/utils';
 
-import { XJog } from './XJog';
+import type { XJog } from './XJog';
 
 /**
  * Ongoing activities are managed at the top level because they may

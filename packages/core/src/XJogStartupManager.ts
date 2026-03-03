@@ -1,7 +1,9 @@
-import { ChartReference, getCorrelationIdentifier } from '@samihult/xjog-util';
-
-import { ResolvedXJogOptions } from './XJogOptions';
-import { XJog } from './XJog';
+import {
+  type ChartReference,
+  getCorrelationIdentifier,
+} from '@samihult/xjog-util';
+import type { XJog } from './XJog';
+import type { ResolvedXJogOptions } from './XJogOptions';
 
 /**
  * Class that will handle the startup sequence.
@@ -149,9 +151,13 @@ export class XJogStartupManager {
     if (pausedChartCount > 0) {
       trace({ message: 'More charts to adopt', pausedChartCount });
 
-      // Restart the grace period, otherwise it could be
-      // spent on a lengthy adoption process alone
-      this.startAdoptionGracePeriod();
+      // Bug fix: only start the grace period if one isn't already running.
+      // Previously this was called on every adoption cycle (~every 2s),
+      // which cleared and reset the 30s timer each time, preventing
+      // forciblyOverThrowStubbornInstances() from ever firing.
+      if (!this.startupGracePeriodTimer) {
+        this.startAdoptionGracePeriod();
+      }
 
       this.adoptionLoopTimer = setTimeout(
         this.adoptCharts.bind(this),

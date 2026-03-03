@@ -1,46 +1,43 @@
-import { v4 as uuidV4 } from 'uuid';
-import { doneInvoke, getActionFunction } from 'xstate/lib/actions';
-import { Mutex, MutexInterface, withTimeout } from 'async-mutex';
-import { concat, Observable, of, map, from, filter } from 'rxjs';
-
-import {
-  getCorrelationIdentifier,
-  ChartIdentifier,
-  ChartReference,
-  ActivityRef,
-  LogFields,
-  XJogLogEmitter,
-  XJogStateChange,
-} from '@samihult/xjog-util';
-
-import {
-  PersistenceAdapter,
+import type {
   PersistedDeferredEvent,
+  PersistenceAdapter,
 } from '@samihult/xjog-core-persistence';
-
 import {
-  ActionObject,
+  type ActivityRef,
+  ChartIdentifier,
+  type ChartReference,
+  getCorrelationIdentifier,
+  type LogFields,
+  XJogLogEmitter,
+  type XJogStateChange,
+} from '@samihult/xjog-util';
+import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
+import { concat, filter, from, map, type Observable, of } from 'rxjs';
+import { v4 as uuidV4 } from 'uuid';
+import {
+  type ActionObject,
   ActionTypes,
-  ActivityActionObject,
-  AnyEventObject,
-  CancelAction,
-  Event,
-  EventObject,
+  type ActivityActionObject,
+  type AnyEventObject,
+  type CancelAction,
+  type Event,
+  type EventObject,
   Interpreter,
-  InvokeCallback,
-  InvokeDefinition,
-  Observer,
-  SCXML,
-  SendActionObject,
-  Spawnable,
+  type InvokeCallback,
+  type InvokeDefinition,
+  type Observer,
+  type SCXML,
+  type SendActionObject,
+  type Spawnable,
   State,
-  StateMachine,
-  StateNodeConfig,
-  StateSchema,
-  Subscribable,
-  Subscription,
-  Typestate,
+  type StateMachine,
+  type StateNodeConfig,
+  type StateSchema,
+  type Subscribable,
+  type Subscription,
+  type Typestate,
 } from 'xstate';
+import { doneInvoke, getActionFunction } from 'xstate/lib/actions';
 
 import {
   isFunction,
@@ -53,22 +50,20 @@ import {
   toObserver,
   toSCXMLEvent,
 } from 'xstate/lib/utils';
-
-import { SpawnOptions, XJogMachine } from './XJogMachine';
-import { XJog } from './XJog';
-
-import {
-  ResolvedXJogChartOptions,
-  resolveXJogChartOptions,
-  XJogChartCreationOptions,
-} from './XJogChartCreationOptions';
-
 import {
   resolveXJogCreateStateChange,
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
 } from './resolveXJogStateChange';
-import { SimulatorAction } from './XJogSimulator';
+import type { XJog } from './XJog';
+
+import {
+  type ResolvedXJogChartOptions,
+  resolveXJogChartOptions,
+  type XJogChartCreationOptions,
+} from './XJogChartCreationOptions';
+import type { SpawnOptions, XJogMachine } from './XJogMachine';
+import type { SimulatorAction } from './XJogSimulator';
 
 export type XJogSendAction<
   TContext = any,
@@ -626,7 +621,15 @@ export class XJogChart<
           });
         }
 
-        this.xJog.changeSubject.next(change);
+        // Bug fix: changeSubject.next() can throw if a synchronous subscriber
+        // errors. This must not prevent executeActions() from running, as that
+        // would leave persisted state with actions that never execute (e.g.
+        // deferred events from xstate.send delayed transitions).
+        try {
+          this.xJog.changeSubject.next(change);
+        } catch (err) {
+          error('Failed to emit change event', { err });
+        }
 
         await this.xJog.timeExecution(
           'chart.send.execute actions',
