@@ -1,17 +1,20 @@
-import { EventObject, StateValue } from 'xstate';
-import { ChartReference, XJogStateChangeAction } from "@samihult/xjog-util";
+import type {
+	ChartReference,
+	XJogStateChangeAction,
+} from "@samihult/xjog-util";
+import type { EventObject, StateValue } from "xstate";
 
 export type FullStateEntry = {
-  id: number;
-  created: number;
-  timestamp: number;
+	id: number;
+	created: number;
+	timestamp: number;
 
-  ownerId: string;
-  ref: ChartReference;
-  parentRef: ChartReference | null;
+	ownerId: string;
+	ref: ChartReference;
+	parentRef: ChartReference | null;
 
-  event: EventObject | null;
-  state: StateValue | null;
-  context: any | null;
-  actions: XJogStateChangeAction[];
+	event: EventObject | null;
+	state: StateValue | null;
+	context: any | null;
+	actions: XJogStateChangeAction[] | null;
 };

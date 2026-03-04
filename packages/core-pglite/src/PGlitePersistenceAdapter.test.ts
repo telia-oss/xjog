@@ -117,3 +117,35 @@ describe('PGlitePersistenceAdapter', () => {
     expect(event).toBeUndefined();
   });
 });
+
+describe('PGlitePersistenceAdapter: orphan-locked deferred events released on startup', () => {
+  it('Releases all deferred event locks during overthrowOtherInstances', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    // Seed a deferred event with a lock set to simulate a dead instance that
+    // was killed without graceful shutdown (releaseAll never ran).
+    await adapter.withTransaction(async (client) => {
+      await client.exec('DELETE FROM "deferredEvents"');
+      await client.exec(
+        `INSERT INTO "deferredEvents"
+          ("eventId", "machineId", "chartId", "event", "delay", "due", "lock")
+         VALUES ('evt-orphan', 'm', 'c', '{}', 0, NOW(), 'dead-instance-uuid')`,
+      );
+    });
+
+    // Verify the lock is set before we call overthrowOtherInstances
+    const before = await adapter.withTransaction(async (client) => {
+      return client.query('SELECT "lock" FROM "deferredEvents"');
+    });
+    expect(before.rows[0].lock).toBe('dead-instance-uuid');
+
+    // overthrowOtherInstances should now clear the lock as part of startup
+    await adapter.overthrowOtherInstances('new-instance-uuid', 'cid');
+
+    // Lock must be NULL so the new instance can pick up the event
+    const after = await adapter.withTransaction(async (client) => {
+      return client.query('SELECT "lock" FROM "deferredEvents"');
+    });
+    expect(after.rows[0].lock).toBeNull();
+  });
+});

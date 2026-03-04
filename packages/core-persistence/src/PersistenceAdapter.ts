@@ -3,11 +3,18 @@ import { EventObject, StateSchema, Typestate, State } from 'xstate';
 
 import {
   AbstractPersistenceAdapter,
-  ChartReference,
+	type ChartReference,
   getCorrelationIdentifier,
 } from '@samihult/xjog-util';
+import { v4 as uuidV4 } from 'uuid';
+import {
+	type EventObject,
+	State,
+	type StateSchema,
+	type Typestate,
+} from 'xstate';
 
-import { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
+import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 
 /**
  * Abstract adapter class for XJog persistence.
@@ -355,6 +362,14 @@ export abstract class PersistenceAdapter<
 
       trace({ message: 'Marking all charts paused' });
       await this.markAllChartsPaused(connection);
+
+			// Bug fix: release deferred event locks left behind by instances that
+			// were killed without graceful shutdown. Without this, events locked
+			// by dead instance UUIDs are permanently stuck since new instances
+			// only query WHERE lock IS NULL (releaseAll/releaseAllDeferredEvents
+			// is only called from XJog.shutdown(), which never runs on SIGKILL).
+			trace({ message: 'Releasing all deferred event locks' });
+			await this.unmarkAllDeferredEventsForProcessing(connection);
 
       trace({ message: 'Adding the instance to the list' });
       await this.insertInstance(instanceId, connection);
