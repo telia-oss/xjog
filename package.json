@@ -13,6 +13,7 @@
     "watch-all": "lerna run build ; lerna watch -- lerna run build --since"
   },
   "devDependencies": {
-    "lerna": "7.4.2"
+    "lerna": "7.4.2",
+    "rxjs": "^7.8.2"
   }
 }
