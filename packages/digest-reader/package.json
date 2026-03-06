@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-digest-reader",
-  "version": "0.0.33",
+  "version": "0.0.34",
   "description": "XJog chart digest reader",
   "engines": {
     "npm": ">=8.19.4",
@@ -29,9 +29,8 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-digest-persistence": "^0.0.28",
-    "@samihult/xjog-util": "^0.0.37",
-    "rxjs": "^7.4.0"
+    "@samihult/xjog-digest-persistence": "^0.0.29",
+    "@samihult/xjog-util": "^0.0.38"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",
@@ -43,5 +42,8 @@
     "prettier": "^2.3.2",
     "typescript": "^4.7.4"
   },
-  "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb"
+  "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
+  "peerDependencies": {
+    "rxjs": "^7.8.2"
+  }
 }

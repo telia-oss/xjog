@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-persistence",
-  "version": "0.0.56",
+  "version": "0.0.57",
   "description": "XJog chart abstract journal persistence adapter",
   "engines": {
     "npm": ">=8.19.4",
@@ -29,9 +29,8 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-util": "^0.0.37",
+    "@samihult/xjog-util": "^0.0.38",
     "rfc6902": "^5.0.1",
-    "rxjs": "^7.4.0",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
@@ -44,5 +43,8 @@
     "prettier": "^2.3.2",
     "typescript": "^4.7.4"
   },
-  "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb"
+  "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
+  "peerDependencies": {
+    "rxjs": "^7.8.2"
+  }
 }
