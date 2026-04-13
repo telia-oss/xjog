@@ -372,7 +372,7 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
       [ref.machineId, ref.chartId],
     );
 
-    if (!result.affectedRows) {
+    if (!result.rows.length) {
       return null;
     }
 
@@ -604,6 +604,27 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         'WHERE "id"=$1 ' +
         'FOR SHARE',
       [id],
+    );
+
+    if (!result.rows.length) {
+      return null;
+    }
+
+    return PGlitePersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
+  }
+
+  protected async readDeferredEventByEventId(
+    ref: ChartReference,
+    eventId: string | number,
+    connection: PGlite = this.pool,
+  ): Promise<PersistedDeferredEvent | null> {
+    const result = await connection.query<PGliteDeferredEventRow>(
+      'SELECT ' +
+        this.deferredEventSelectFields +
+        'FROM "deferredEvents" ' +
+        'WHERE "machineId"=$1 AND "chartId"=$2 AND "eventId"=$3 ' +
+        'FOR SHARE',
+      [ref.machineId, ref.chartId, JSON.stringify(eventId)],
     );
 
     if (!result.rows.length) {

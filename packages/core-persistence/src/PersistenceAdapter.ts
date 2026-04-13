@@ -247,6 +247,12 @@ export abstract class PersistenceAdapter<
     connection?: ConnectionType,
   ): Promise<PersistedDeferredEvent | null>;
 
+  protected abstract readDeferredEventByEventId(
+    ref: ChartReference,
+    eventId: string | number,
+    connection?: ConnectionType,
+  ): Promise<PersistedDeferredEvent | null>;
+
   /**
    * In ascending order by due time.
    *
@@ -644,6 +650,16 @@ export abstract class PersistenceAdapter<
       trace({ message: 'Done' });
       return insertedEventRow;
     });
+  }
+
+  public async isDeferredEventPresent(
+    ref: ChartReference,
+    eventId: string | number,
+    connection?: ConnectionType,
+  ): Promise<boolean> {
+    return (
+      (await this.readDeferredEventByEventId(ref, eventId, connection)) !== null
+    );
   }
 
   /**
