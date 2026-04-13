@@ -1,18 +1,16 @@
 import { v4 as uuidV4 } from 'uuid';
-import { EventObject, StateSchema, Typestate, State } from 'xstate';
-
-import {
-  AbstractPersistenceAdapter,
-	type ChartReference,
-  getCorrelationIdentifier,
-} from '@samihult/xjog-util';
-import { v4 as uuidV4 } from 'uuid';
 import {
 	type EventObject,
 	State,
 	type StateSchema,
 	type Typestate,
 } from 'xstate';
+
+import {
+  AbstractPersistenceAdapter,
+  type ChartReference,
+  getCorrelationIdentifier,
+} from '@samihult/xjog-util';
 
 import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 

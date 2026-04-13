@@ -375,7 +375,7 @@ export class XJogChart<
     TContext,
     TEvent extends EventObject,
   >(stateNode: StateNode<TContext, any, TEvent>): Array<ActionObject<TContext, TEvent>> {
-    return stateNode.transitions
+    return stateNode.after
       .filter(
         (transition) =>
           typeof transition.eventType === 'string' &&
@@ -472,12 +472,17 @@ export class XJogChart<
           : this.state.actions),
       ];
 
+      const rehydratedState = Object.assign(
+        Object.create(
+          Object.getPrototypeOf(this.state),
+        ) as State<TContext, TEvent, TStateSchema, TTypeState>,
+        this.state,
+        { actions: actionsToExecute },
+      );
+
       trace({ message: 'Executing actions' });
       await this.executeActions(
-        {
-          ...this.state,
-          actions: actionsToExecute,
-        },
+        rehydratedState,
         true,
         false,
         cid,
