@@ -1,8 +1,9 @@
 import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { Subject } from 'rxjs';
-import { createMachine } from 'xstate';
+import { createMachine, interpret, State } from 'xstate';
 
 import type { XJog } from './XJog';
+import { XJogChart } from './XJogChart';
 import { XJogMachine } from './XJogMachine';
 
 // PGlite initialisation can take several seconds
@@ -131,5 +132,93 @@ describe('XJogChart: executeActions must run even if changeSubject.next() throws
 
     expect(result).not.toBeNull();
     expect(result?.value).toBe('done');
+  });
+});
+
+describe('XJogChart missing after repair', () => {
+  it('reconstructs missing after-actions when deferred row is absent', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine({
+      id: 'rehydrate-after-machine',
+      initial: 'waiting',
+      states: {
+        waiting: {
+          after: {
+            1000: 'done',
+          },
+        },
+        done: {
+          type: 'final',
+        },
+      },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const service = interpret(machine).start();
+    const resolvedState = machine.resolveState(
+      State.create(JSON.parse(JSON.stringify(service.state))),
+    );
+
+    (xJogMachine.persistence as any).isDeferredEventPresent = jest
+      .fn()
+      .mockResolvedValue(false);
+
+    // @ts-expect-error Testing private helper intentionally
+    const repairedActions = await XJogChart.resolveMissingAfterActions(
+      xJogMachine,
+      'chart-with-after',
+      resolvedState,
+    );
+
+    expect(
+      repairedActions.some(
+        (action) =>
+          action.type === 'xstate.send' &&
+          action.id === 'xstate.after(1000)#rehydrate-after-machine.waiting',
+      ),
+    ).toBe(true);
+  });
+
+  it('executes reconstructed after-actions during runStep even when rehydrate actions are skipped', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+    xJog.options.startup.skipRunningActionsOnRehydrate = true;
+
+    const machine = createMachine({
+      id: 'rehydrate-runstep-machine',
+      initial: 'waiting',
+      states: {
+        waiting: {
+          after: {
+            1000: 'done',
+          },
+        },
+        done: {
+          type: 'final',
+        },
+      },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const chart = await xJogMachine.createChart({
+      chartId: 'chart-runstep-after',
+    });
+
+    (xJogMachine.persistence as any).isDeferredEventPresent = jest
+      .fn()
+      .mockResolvedValue(false);
+
+    const deferSpy = jest.spyOn(xJog.deferredEventManager, 'defer');
+
+    await chart.runStep();
+
+    expect(deferSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'xstate.after(1000)#rehydrate-runstep-machine.waiting',
+      }),
+      expect.any(String),
+    );
   });
 });

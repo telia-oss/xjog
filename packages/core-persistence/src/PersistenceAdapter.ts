@@ -1,18 +1,16 @@
 import { v4 as uuidV4 } from 'uuid';
-import { EventObject, StateSchema, Typestate, State } from 'xstate';
-
-import {
-  AbstractPersistenceAdapter,
-	type ChartReference,
-  getCorrelationIdentifier,
-} from '@samihult/xjog-util';
-import { v4 as uuidV4 } from 'uuid';
 import {
 	type EventObject,
 	State,
 	type StateSchema,
 	type Typestate,
 } from 'xstate';
+
+import {
+  AbstractPersistenceAdapter,
+  type ChartReference,
+  getCorrelationIdentifier,
+} from '@samihult/xjog-util';
 
 import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 
@@ -244,6 +242,12 @@ export abstract class PersistenceAdapter<
    */
   protected abstract readDeferredEventRow(
     id: number,
+    connection?: ConnectionType,
+  ): Promise<PersistedDeferredEvent | null>;
+
+  protected abstract readDeferredEventByEventId(
+    ref: ChartReference,
+    eventId: string | number,
     connection?: ConnectionType,
   ): Promise<PersistedDeferredEvent | null>;
 
@@ -644,6 +648,16 @@ export abstract class PersistenceAdapter<
       trace({ message: 'Done' });
       return insertedEventRow;
     });
+  }
+
+  public async isDeferredEventPresent(
+    ref: ChartReference,
+    eventId: string | number,
+    connection?: ConnectionType,
+  ): Promise<boolean> {
+    return (
+      (await this.readDeferredEventByEventId(ref, eventId, connection)) !== null
+    );
   }
 
   /**

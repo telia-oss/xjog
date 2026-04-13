@@ -30,6 +30,7 @@ import {
   type SendActionObject,
   type Spawnable,
   State,
+  type StateNode,
   type StateMachine,
   type StateNodeConfig,
   type StateSchema,
@@ -318,6 +319,7 @@ export class XJogChart<
       }
 
       const { state, parentRef } = chart;
+      const resolvedState = xJogMachine.machine.resolveState(state);
 
       return new XJogChart<
         TContext,
@@ -329,10 +331,70 @@ export class XJogChart<
         xJogMachine,
         chartId,
         parentRef,
-        state,
+        resolvedState,
         resolveXJogChartOptions(xJogMachine.xJog.options, xJogMachine.options),
       );
     });
+  }
+
+  private static async resolveMissingAfterActions<
+    TContext,
+    TStateSchema extends StateSchema,
+    TEvent extends EventObject,
+    TTypeState extends Typestate<TContext>,
+  >(
+    xJogMachine: XJogMachine<TContext, TStateSchema, TEvent, TTypeState>,
+    chartId: string,
+    state: State<TContext, TEvent, TStateSchema, TTypeState>,
+  ): Promise<Array<ActionObject<TContext, TEvent>>> {
+    const afterActions = state.configuration.flatMap((stateNode) =>
+      XJogChart.resolveAfterActionsForStateNode(stateNode),
+    );
+
+    const missingAfterActions: Array<ActionObject<TContext, TEvent>> = [];
+
+    for (const action of afterActions) {
+      if (!action.id) {
+        continue;
+      }
+
+      const isPresent = await xJogMachine.persistence.isDeferredEventPresent(
+        { machineId: xJogMachine.id, chartId },
+        action.id,
+      );
+
+      if (!isPresent) {
+        missingAfterActions.push(action);
+      }
+    }
+
+    return missingAfterActions;
+  }
+
+  private static resolveAfterActionsForStateNode<
+    TContext,
+    TEvent extends EventObject,
+  >(
+    stateNode: StateNode<TContext, any, TEvent>,
+  ): Array<ActionObject<TContext, TEvent>> {
+    return stateNode.after
+      .filter(
+        (transition) =>
+          typeof transition.eventType === 'string' &&
+          transition.eventType.startsWith('xstate.after(') &&
+          typeof transition.delay === 'number',
+      )
+      .map(
+        (transition) =>
+          ({
+            to: undefined,
+            type: ActionTypes.Send,
+            id: transition.eventType,
+            delay: transition.delay,
+            event: { type: transition.eventType },
+            _event: toSCXMLEvent({ type: transition.eventType }),
+          } as ActionObject<TContext, TEvent>),
+      );
   }
 
   private async acquireMutex(
@@ -394,8 +456,40 @@ export class XJogChart<
 
       const stateBeforeTransition = JSON.parse(JSON.stringify(this.state));
 
+      const missingAfterActions = await XJogChart.resolveMissingAfterActions(
+        this.xJogMachine,
+        this.chartId,
+        this.state,
+      );
+
+      if (missingAfterActions.length > 0) {
+        trace({
+          message: 'Reconstructing missing after-actions on rehydrate',
+          count: missingAfterActions.length,
+          actionIds: missingAfterActions.map((action) => action.id),
+        });
+      }
+
+      const actionsToExecute = [
+        ...missingAfterActions,
+        ...(this.xJog.options.startup.skipRunningActionsOnRehydrate
+          ? []
+          : this.state.actions),
+      ];
+
+      const rehydratedState = Object.assign(
+        Object.create(Object.getPrototypeOf(this.state)) as State<
+          TContext,
+          TEvent,
+          TStateSchema,
+          TTypeState
+        >,
+        this.state,
+        { actions: actionsToExecute },
+      );
+
       trace({ message: 'Executing actions' });
-      await this.executeActions(this.state, true, false, cid);
+      await this.executeActions(rehydratedState, true, false, cid);
 
       trace({ message: 'Emitting next value' });
 

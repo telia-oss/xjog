@@ -663,6 +663,27 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     return PostgresPersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
   }
 
+  protected async readDeferredEventByEventId(
+    ref: ChartReference,
+    eventId: string | number,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<PersistedDeferredEvent | null> {
+    const result = await connection.query<PostgreSQLDeferredEventRow>(
+      'SELECT ' +
+        this.deferredEventSelectFields +
+        'FROM "deferredEvents" ' +
+        'WHERE "machineId"=$1 AND "chartId"=$2 AND "eventId"=$3 ' +
+        'FOR SHARE',
+      [ref.machineId, ref.chartId, JSON.stringify(eventId)],
+    );
+
+    if (!result.rowCount) {
+      return null;
+    }
+
+    return PostgresPersistenceAdapter.parseSqlDeferredEventRow(result.rows[0]);
+  }
+
   /**
    * Read a batch of deferred events and mark them taken
    * @param instanceId
