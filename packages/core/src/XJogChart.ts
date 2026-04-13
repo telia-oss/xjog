@@ -374,7 +374,9 @@ export class XJogChart<
   private static resolveAfterActionsForStateNode<
     TContext,
     TEvent extends EventObject,
-  >(stateNode: StateNode<TContext, any, TEvent>): Array<ActionObject<TContext, TEvent>> {
+  >(
+    stateNode: StateNode<TContext, any, TEvent>,
+  ): Array<ActionObject<TContext, TEvent>> {
     return stateNode.after
       .filter(
         (transition) =>
@@ -382,14 +384,17 @@ export class XJogChart<
           transition.eventType.startsWith('xstate.after(') &&
           typeof transition.delay === 'number',
       )
-      .map((transition) => ({
-        to: undefined,
-        type: ActionTypes.Send,
-        id: transition.eventType,
-        delay: transition.delay,
-        event: { type: transition.eventType },
-        _event: toSCXMLEvent({ type: transition.eventType }),
-      } as ActionObject<TContext, TEvent>));
+      .map(
+        (transition) =>
+          ({
+            to: undefined,
+            type: ActionTypes.Send,
+            id: transition.eventType,
+            delay: transition.delay,
+            event: { type: transition.eventType },
+            _event: toSCXMLEvent({ type: transition.eventType }),
+          } as ActionObject<TContext, TEvent>),
+      );
   }
 
   private async acquireMutex(
@@ -473,20 +478,18 @@ export class XJogChart<
       ];
 
       const rehydratedState = Object.assign(
-        Object.create(
-          Object.getPrototypeOf(this.state),
-        ) as State<TContext, TEvent, TStateSchema, TTypeState>,
+        Object.create(Object.getPrototypeOf(this.state)) as State<
+          TContext,
+          TEvent,
+          TStateSchema,
+          TTypeState
+        >,
         this.state,
         { actions: actionsToExecute },
       );
 
       trace({ message: 'Executing actions' });
-      await this.executeActions(
-        rehydratedState,
-        true,
-        false,
-        cid,
-      );
+      await this.executeActions(rehydratedState, true, false, cid);
 
       trace({ message: 'Emitting next value' });
 

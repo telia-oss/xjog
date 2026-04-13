@@ -202,7 +202,9 @@ describe('XJogChart missing after repair', () => {
     });
 
     const xJogMachine = new XJogMachine(xJog, machine);
-    const chart = await xJogMachine.createChart({ chartId: 'chart-runstep-after' });
+    const chart = await xJogMachine.createChart({
+      chartId: 'chart-runstep-after',
+    });
 
     (xJogMachine.persistence as any).isDeferredEventPresent = jest
       .fn()
