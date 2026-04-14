@@ -89,10 +89,7 @@ export class XJogDeferredEventManager {
    * Schedule the next read only if there is no earlier wake-up already queued.
    */
   private rescheduleNextReadNoLaterThan(due: number): number {
-    if (
-      this.deferredEventHandlerTimer !== null &&
-      this.nextReadAt <= due
-    ) {
+    if (this.deferredEventHandlerTimer !== null && this.nextReadAt <= due) {
       return Math.max(this.nextReadAt - Date.now(), 0);
     }
 
