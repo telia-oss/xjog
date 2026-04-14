@@ -4,8 +4,8 @@
   "description": "XJog chart journal writer",
   "engines": {
     "npm": ">=8.19.4",
-    "yarn": "^1.22.8",
-    "node": ">=16.x"
+    "node": ">=24.x",
+    "pnpm": ">=10.33.0"
   },
   "keywords": [
     "statechart",
@@ -23,13 +23,13 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prePublishOnly": "yarn build",
+    "prePublishOnly": "pnpm run build",
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog": "^0.0.326",
-    "@samihult/xjog-journal-persistence": "^0.0.59",
-    "@samihult/xjog-util": "^0.0.40"
+    "@samihult/xjog": "workspace:^",
+    "@samihult/xjog-journal-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",

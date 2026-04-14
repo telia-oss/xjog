@@ -17,19 +17,19 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "yarn build:bin ; yarn build:files",
+    "build": "pnpm run build:bin && pnpm run build:files",
     "build:bin": "tsc",
     "build:files": "cpx-fixed 'src/**/*.sql' lib",
     "clean": "rm -rf node_modules lib",
     "format": "prettier --write 'src/**/*.ts'",
     "lint": "eslint src/**/*.ts && prettier --check src",
-    "prePublishOnly": "yarn build",
+    "prePublishOnly": "pnpm run build",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",
-    "@samihult/xjog-core-persistence": "^0.0.46",
-    "@samihult/xjog-util": "^0.0.40",
+    "@samihult/xjog-core-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^",
     "node-pg-migrate": "^6.2.1"
   },
   "devDependencies": {

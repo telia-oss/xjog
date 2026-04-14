@@ -4,8 +4,8 @@
   "description": "XState chart runner for long-running charts",
   "engines": {
     "npm": ">=8.19.4",
-    "yarn": "^1.22.8",
-    "node": ">=16.x"
+    "node": ">=24.x",
+    "pnpm": ">=10.33.0"
   },
   "keywords": [
     "statechart",
@@ -23,21 +23,21 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest --config jestconfig.js --passWithNoTests",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest --config jestconfig.js --passWithNoTests",
     "lint": "eslint src/**/*.ts && prettier --check src",
     "format": "prettier --write 'src/**/*.ts'",
-    "prepublishOnly": "yarn lint && yarn build && echo 'should also run: yarn test + yarn check'",
+    "prepublishOnly": "pnpm run lint && pnpm run build && echo 'should also run: pnpm run test + pnpm run check'",
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-core-persistence": "^0.0.46",
-    "@samihult/xjog-util": "^0.0.40",
+    "@samihult/xjog-core-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^",
     "async-mutex": "^0.3.2",
     "uuid": "^8.3.2",
     "xstate": "4.26.1"
   },
   "devDependencies": {
-    "@samihult/xjog-core-pglite": "^0.0.9",
+    "@samihult/xjog-core-pglite": "workspace:^",
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.2.223",
     "@swc/jest": "^0.2.22",
@@ -56,11 +56,6 @@
     "prettier": "^2.3.2",
     "ts-node": "^10.7.0",
     "typescript": "^4.7.4"
-  },
-  "resolutions": {
-    "ansi-regex@>=5.0.0 <5.0.1": "5.0.1",
-    "minimist": "^1.2.6",
-    "shell-quote": "^1.7.3"
   },
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
   "peerDependencies": {

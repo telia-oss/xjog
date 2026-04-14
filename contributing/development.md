@@ -1,10 +1,11 @@
 # Development
 
-This is a monorepo managed using yarn workspaces and lerna.
+This is a monorepo managed using pnpm workspaces and lerna.
 
 Prerequisites:
 
-- `yarn`
+- `pnpm`
+- Node.js 24
 
 ## Getting started
 
@@ -13,22 +14,22 @@ Prepare the repository.
 ```bash
 git clone git@github.com:samihult/xjog.git
 cd xjog
-yarn
+pnpm install
 ```
 
 After this you can run commands like this from the root directory:
 
 ```bash
-lerna run clean
-lerna run build
-lerna run lint --scope @samihult/xjog
-lerna exec -- cat package.json | jq '.license'
+pnpm lerna run clean
+pnpm lerna run build
+pnpm lerna run lint --scope @samihult/xjog
+pnpm lerna exec -- cat package.json | jq '.license'
 ```
 
 To get started with development, build and watch from the root level.
 
 ```bash
-yarn run watch-all
+pnpm run watch-all
 ```
 
 ## Versioning and publishing
@@ -48,11 +49,11 @@ There are two main ways of versioning and publishing:
 
 ```bash
 # Version and publish in one go
-lerna publish
+pnpm lerna publish
 
 # Version and publish separately
-lerna version
-lerna publish from-package
+pnpm lerna version
+pnpm lerna publish from-package
 ```
 
 While in alpha, packages will be pushed to GitHub packages under the `@samihult` namespace. At graduation, the namespace
@@ -95,7 +96,7 @@ effort on writing E2E tests.
 To run all unit tests:
 
 ```bash
-lerna run test
+pnpm lerna run test
 ```
 
 B) End-to-end tests (E2E)
@@ -115,5 +116,4 @@ Testing should be activated. See the following issues:
 
 - [#9 Bring back unit tests](https://github.com/samihult/xjog/issues/9)
 - [#10 Re-establish E2E tests](https://github.com/samihult/xjog/issues/10)
-
 

@@ -13,7 +13,7 @@
     "lib"
   ],
   "scripts": {
-    "build": "yarn build:bin ; yarn build:files",
+    "build": "pnpm run build:bin && pnpm run build:files",
     "build:bin": "tsc",
     "lint": "eslint src/**/*.ts && prettier --check src",
     "build:files": "cpx-fixed 'src/**/*.sql' lib",
@@ -21,7 +21,10 @@
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.3.5"
+    "@electric-sql/pglite": "^0.3.5",
+    "@samihult/xjog-digest-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^",
+    "node-pg-migrate": "^6.2.1"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",

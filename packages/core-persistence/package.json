@@ -4,8 +4,8 @@
   "description": "XJog chart abstract persistence",
   "engines": {
     "npm": ">=8.19.4",
-    "yarn": "^1.22.8",
-    "node": ">=16.x"
+    "node": ">=24.x",
+    "pnpm": ">=10.33.0"
   },
   "keywords": [
     "statechart",
@@ -22,19 +22,21 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "yarn build:bin ; yarn build:files",
+    "build": "pnpm run build:bin && pnpm run build:files",
     "build:bin": "tsc",
     "build:files": "cpx-fixed 'src/**/*.sql' lib",
-    "prePublishOnly": "yarn build",
+    "prePublishOnly": "pnpm run build",
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-util": "^0.0.40",
-    "uuid": "^8.3.2"
+    "@samihult/xjog-util": "workspace:^",
+    "uuid": "^8.3.2",
+    "xstate": "4.26.1"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",
     "@types/node": "^16.7.10",
+    "@types/uuid": "^8.3.1",
     "@typescript-eslint/eslint-plugin": "^5.40.0",
     "@typescript-eslint/parser": "^5.40.0",
     "cpx-fixed": "^1.6.0",
