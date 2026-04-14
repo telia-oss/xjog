@@ -604,9 +604,18 @@ importers:
       cpx-fixed:
         specifier: ^1.6.0
         version: 1.6.0
+      eslint:
+        specifier: ^8.25.0
+        version: 8.57.1
+      eslint-config-prettier:
+        specifier: ^8.5.0
+        version: 8.10.2(eslint@8.57.1)
       jest:
         specifier: ^28.1.2
         version: 28.1.3(@types/node@16.18.126)(ts-node@10.9.2(@swc/core@1.15.24)(@types/node@16.18.126)(typescript@4.9.5))
+      prettier:
+        specifier: ^2.3.2
+        version: 2.8.8
       ts-node:
         specifier: ^10.7.0
         version: 10.9.2(@swc/core@1.15.24)(@types/node@16.18.126)(typescript@4.9.5)
