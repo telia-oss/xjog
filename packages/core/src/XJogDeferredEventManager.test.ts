@@ -8,6 +8,45 @@ import { XJogDeferredEventManager } from './XJogDeferredEventManager';
 import { ResolvedXJogOptions } from './XJogOptions';
 import { XJog } from './XJog';
 
+function createInMemoryPersistence(
+  delayTakeUpcomingByMs = 0,
+): PersistenceAdapter {
+  let nextId = 1;
+  const deferredEvents: any[] = [];
+
+  return {
+    deferEvent: jest.fn(async (event) => {
+      deferredEvents.push({
+        ...event,
+        id: nextId++,
+        timestamp: Date.now(),
+        due: Date.now() + event.delay,
+      });
+    }),
+    takeUpcomingDeferredEvents: jest.fn(async () => {
+      if (delayTakeUpcomingByMs > 0) {
+        await waitFor(delayTakeUpcomingByMs);
+      }
+
+      const now = Date.now();
+      return deferredEvents.filter(
+        (event) => event.lock === null && event.due <= now + 1000,
+      );
+    }),
+    removeDeferredEvent: jest.fn(async (event) => {
+      const index = deferredEvents.findIndex((item) => item.id === event.id);
+      if (index >= 0) {
+        deferredEvents.splice(index, 1);
+      }
+    }),
+    releaseAllDeferredEvents: jest.fn(async () => {
+      for (const event of deferredEvents) {
+        event.lock = null;
+      }
+    }),
+  } as unknown as PersistenceAdapter;
+}
+
 function mockXJogWithDeferredEventManager(
   persistence: PersistenceAdapter,
   options: ResolvedXJogOptions['deferredEvents'],
@@ -18,7 +57,7 @@ function mockXJogWithDeferredEventManager(
     dying: false,
     persistence,
     trace: trace ? console.log : () => {},
-    timeExecution: jest.fn(),
+    timeExecution: jest.fn(async (_name, fn) => await fn()),
     options: {
       deferredEvents: options,
     },
@@ -358,6 +397,43 @@ describe('XJogDeferredEventManager', () => {
       // The event should never have been sent
       expect(xJog.sendEvent).not.toHaveBeenCalled();
     } finally {
+      await deferredEventManager.releaseAll();
+    }
+  });
+
+  it('does not let an ongoing scheduleUpcoming overwrite an earlier due-now wake-up', async () => {
+    const persistence = createInMemoryPersistence(20);
+    const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
+      persistence,
+      {
+        batchSize: 5,
+        lookAhead: 1000,
+        interval: 1000,
+      },
+    );
+
+    try {
+      const ref = { machineId: 'A', chartId: '1' };
+      const event = toSCXMLEvent('event name');
+
+      const scheduling = deferredEventManager.scheduleUpcoming();
+
+      await waitFor(1);
+      await deferredEventManager.defer({ eventId: 'e', ref, event, delay: 0 });
+      await scheduling;
+
+      await waitFor(50);
+
+      expect(xJog.sendEvent).toHaveBeenCalledWith(
+        ref,
+        event,
+        undefined,
+        undefined,
+        expect.stringMatching(/.+/),
+      );
+    } finally {
+      // @ts-ignore test-only shutdown flag
+      xJog.dying = true;
       await deferredEventManager.releaseAll();
     }
   });

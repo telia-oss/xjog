@@ -85,6 +85,17 @@ export class XJogDeferredEventManager {
     return nextReadDelay;
   }
 
+  /**
+   * Schedule the next read only if there is no earlier wake-up already queued.
+   */
+  private rescheduleNextReadNoLaterThan(due: number): number {
+    if (this.deferredEventHandlerTimer !== null && this.nextReadAt <= due) {
+      return Math.max(this.nextReadAt - Date.now(), 0);
+    }
+
+    return this.rescheduleNextReadAt(due);
+  }
+
   public async defer(
     PersistedDeferredEvent: Omit<
       PersistedDeferredEvent,
@@ -169,6 +180,7 @@ export class XJogDeferredEventManager {
       });
 
     this.deferredEventHandlerTimer = null;
+    this.nextReadAt = Number.MAX_SAFE_INTEGER;
 
     // If dying, don't schedule anything new
     if (this.xJog.dying) {
@@ -200,17 +212,17 @@ export class XJogDeferredEventManager {
             'Scheduling next read after the due time of the last deferred event',
           at: lastDeferredEvent,
         });
-        this.rescheduleNextReadAt(lastDeferredEvent.due);
+        this.rescheduleNextReadNoLaterThan(lastDeferredEvent.due);
       } else {
         trace({ message: 'Scheduling next read immediately' });
-        this.rescheduleNextReadAfter(0);
+        this.rescheduleNextReadNoLaterThan(Date.now());
       }
     }
 
     // If we read less items than the batch size, there are no items to be
     // expected during the read interval. Schedule a regular read after that.
     else {
-      this.rescheduleNextReadAfter(this.options.interval);
+      this.rescheduleNextReadNoLaterThan(Date.now() + this.options.interval);
       trace({
         message: 'Scheduling next read after the regular interval',
         after: this.options.interval,

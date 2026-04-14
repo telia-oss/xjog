@@ -715,12 +715,14 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   }
 
   protected async insertDeferredEvent(
-    PersistedDeferredEvent: Omit<
-      PersistedDeferredEvent,
-      'id' | 'due' | 'timestamp'
-    >,
+    PersistedDeferredEvent: Omit<PersistedDeferredEvent, 'id'>,
     connection: PGlite = this.pool,
   ): Promise<PersistedDeferredEvent | null> {
+    const timestamp = PersistedDeferredEvent.timestamp ?? Date.now();
+    const due =
+      PersistedDeferredEvent.due ??
+      timestamp + Math.ceil(PersistedDeferredEvent.delay);
+
     let toFieldStringRepresentation = null;
 
     if (PersistedDeferredEvent.eventTo) {
@@ -755,8 +757,8 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         ') VALUES (' +
         '  $1, $2, ' +
         '  $3, $4, $5, ' +
-        '  transaction_timestamp(), $6::bigint, ' +
-        '  transaction_timestamp() + make_interval(secs => $6::bigint / 1000)' +
+        '  $6, $7::bigint, ' +
+        '  $8' +
         ') ' +
         'RETURNING ' +
         this.deferredEventSelectFields,
@@ -766,7 +768,9 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         JSON.stringify(PersistedDeferredEvent.eventId), // $3
         JSON.stringify(toFieldStringRepresentation), // $4
         JSON.stringify(PersistedDeferredEvent.event), // $5
-        Math.ceil(PersistedDeferredEvent.delay), // $6
+        new Date(timestamp).toISOString(), // $6
+        Math.ceil(PersistedDeferredEvent.delay), // $7
+        new Date(due).toISOString(), // $8
       ],
     );
 

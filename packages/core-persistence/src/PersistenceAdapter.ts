@@ -229,7 +229,7 @@ export abstract class PersistenceAdapter<
    * @returns Inserted id
    */
   protected abstract insertDeferredEvent(
-    deferredEventRow: Omit<PersistedDeferredEvent, 'id' | 'due' | 'timestamp'>,
+    deferredEventRow: Omit<PersistedDeferredEvent, 'id'>,
     connection?: ConnectionType,
   ): Promise<PersistedDeferredEvent | null>;
 
@@ -622,9 +622,14 @@ export abstract class PersistenceAdapter<
       });
 
     return await this.withTransaction(async (connection) => {
+      const timestamp = Date.now();
+      const due = timestamp + Math.ceil(deferredEventRow.delay);
+
       trace({
         message: 'Inserting deferred event into the database',
         delay: deferredEventRow.delay,
+        timestamp,
+        due,
       });
 
       const insertedEventRow = await this.insertDeferredEvent(
@@ -633,7 +638,9 @@ export abstract class PersistenceAdapter<
           eventId: deferredEventRow.eventId ?? uuidV4(),
           eventTo: deferredEventRow.eventTo ?? null,
           event: deferredEventRow.event,
+          timestamp,
           delay: deferredEventRow.delay,
+          due,
           lock: deferredEventRow.lock,
         },
         connection,
