@@ -22,7 +22,7 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "pnpm exec tsc",
     "prePublishOnly": "pnpm run build",
     "clean": "rm -rf node_modules lib"
   },
@@ -31,14 +31,6 @@
     "@samihult/xjog-journal-persistence": "workspace:^",
     "@samihult/xjog-util": "workspace:^"
   },
-  "devDependencies": {
-    "@types/jest": "^27.0.1",
-    "@types/node": "^16.7.10",
-    "@typescript-eslint/eslint-plugin": "^5.40.0",
-    "@typescript-eslint/parser": "^5.40.0",
-    "jest": "^28.1.2",
-    "prettier": "^2.3.2",
-    "typescript": "^4.7.4"
-  },
+  "devDependencies": {},
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb"
 }

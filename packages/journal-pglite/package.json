@@ -14,11 +14,11 @@
   ],
   "scripts": {
     "build": "pnpm run build:bin && pnpm run build:files",
-    "build:bin": "tsc",
-    "lint": "eslint src/**/*.ts && prettier --check src",
-    "build:files": "cpx-fixed 'src/**/*.sql' lib",
+    "build:bin": "pnpm exec tsc",
+    "lint": "pnpm exec eslint src/**/*.ts && pnpm exec prettier --check src",
+    "build:files": "pnpm exec cpx-fixed 'src/**/*.sql' lib",
     "clean": "rm -rf node_modules lib",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
+    "test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",
@@ -27,14 +27,5 @@
     "xstate": "4.26.1",
     "node-pg-migrate": "^6.2.1"
   },
-  "devDependencies": {
-    "@types/node": "^16.7.10",
-    "cpx-fixed": "^1.6.0",
-    "eslint": "^8.25.0",
-    "eslint-config-prettier": "^8.5.0",
-    "jest": "^28.1.2",
-    "prettier": "^2.3.2",
-    "ts-node": "^10.7.0",
-    "typescript": "^4.7.4"
-  }
+  "devDependencies": {}
 }
