@@ -293,7 +293,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   ): () => void {
     let cancelled = false;
 
-    let timer: NodeJS.Timer | null = setInterval(async () => {
+    let timer: ReturnType<typeof setInterval> | null = setInterval(async () => {
       if (cancelled) {
         if (timer) {
           clearInterval(timer);
@@ -764,8 +764,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     PersistedDeferredEvent: Omit<PersistedDeferredEvent, 'id'>,
     connection: Pool | PoolClient = this.pool,
   ): Promise<PersistedDeferredEvent | null> {
-    const timestamp =
-      PersistedDeferredEvent.timestamp ?? Date.now();
+    const timestamp = PersistedDeferredEvent.timestamp ?? Date.now();
     const due =
       PersistedDeferredEvent.due ??
       timestamp + Math.ceil(PersistedDeferredEvent.delay);
@@ -802,14 +801,14 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
           '  "eventId", "eventTo", "event", ' +
           '  "timestamp", "delay", ' +
           '  "due" ' +
-        ') VALUES (' +
+          ') VALUES (' +
           '  :machineId, :chartId, ' +
           '  :eventId, :eventTo, :event, ' +
           '  :timestamp_iso::timestamptz, :delay::bigint, ' +
           '  :due_iso::timestamptz' +
-        ') ' +
-        'RETURNING ' +
-        this.deferredEventSelectFields,
+          ') ' +
+          'RETURNING ' +
+          this.deferredEventSelectFields,
         {
           machineId: PersistedDeferredEvent.ref.machineId,
           chartId: PersistedDeferredEvent.ref.chartId,

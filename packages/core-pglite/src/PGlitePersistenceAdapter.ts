@@ -281,7 +281,7 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   ): () => void {
     let cancelled = false;
 
-    let timer: NodeJS.Timer | null = setInterval(async () => {
+    let timer: ReturnType<typeof setInterval> | null = setInterval(async () => {
       if (cancelled) {
         if (timer) {
           clearInterval(timer);

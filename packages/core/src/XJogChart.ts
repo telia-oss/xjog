@@ -93,15 +93,15 @@ export type XJogSendAction<
  * @group XJog
  */
 export class XJogChart<
-    TContext = any,
-    TStateSchema extends StateSchema = any,
-    TEvent extends EventObject = EventObject,
-    TTypeState extends Typestate<TContext> = {
-      value: any;
-      context: TContext;
-    },
-    TEmitted = any,
-  >
+  TContext = any,
+  TStateSchema extends StateSchema = any,
+  TEvent extends EventObject = EventObject,
+  TTypeState extends Typestate<TContext> = {
+    value: any;
+    context: TContext;
+  },
+  TEmitted = any,
+>
   extends XJogLogEmitter
   implements ChartReference
 {
@@ -393,7 +393,7 @@ export class XJogChart<
             delay: transition.delay,
             event: { type: transition.eventType },
             _event: toSCXMLEvent({ type: transition.eventType }),
-          } as ActionObject<TContext, TEvent>),
+          }) as ActionObject<TContext, TEvent>,
       );
   }
 
@@ -873,8 +873,8 @@ export class XJogChart<
       const exec = isFunction(actionOrExec)
         ? actionOrExec
         : actionOrExec
-        ? actionOrExec.exec
-        : action.exec;
+          ? actionOrExec.exec
+          : action.exec;
 
       // If it's immediately executable, run it...
       if (exec) {

@@ -128,9 +128,8 @@ export class XJogStartupManager {
     const adoptedChartIdentifiers =
       await this.xJog.persistence.gentlyAdoptCharts(this.xJog.id, cid);
 
-    const pausedChartCount = await this.xJog.persistence.getPausedChartCount(
-      cid,
-    );
+    const pausedChartCount =
+      await this.xJog.persistence.getPausedChartCount(cid);
 
     if (adoptedChartIdentifiers.length) {
       trace({
