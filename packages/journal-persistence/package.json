@@ -31,7 +31,8 @@
   "dependencies": {
     "@samihult/xjog-util": "workspace:^",
     "rfc6902": "^5.0.1",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "xstate": "4.26.1"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",
