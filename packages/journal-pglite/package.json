@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-pglite",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "> TODO: description",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
   "homepage": "",
@@ -24,8 +24,8 @@
     "@electric-sql/pglite": "^0.3.5",
     "@samihult/xjog-journal-persistence": "workspace:^",
     "@samihult/xjog-util": "workspace:^",
-    "xstate": "4.26.1",
-    "node-pg-migrate": "^6.2.1"
+    "node-pg-migrate": "^6.2.1",
+    "xstate": "4.26.1"
   },
   "devDependencies": {}
 }
