@@ -1,16 +1,20 @@
 {
   "name": "@xjog/packages",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.33.0",
   "engines": {
-    "npm": ">=8.19.4",
-    "yarn": "^1.22.8",
-    "node": ">=16.x"
+    "node": ">=24.x",
+    "pnpm": ">=10.33.0"
   },
   "scripts": {
-    "watch-all": "lerna run build ; lerna watch -- lerna run build --since"
+    "watch-all": "lerna run build && lerna watch -- lerna run build --since"
+  },
+  "pnpm": {
+    "overrides": {
+      "ansi-regex@>=5.0.0 <5.0.1": "5.0.1",
+      "minimist": "^1.2.6",
+      "shell-quote": "^1.7.3"
+    }
   },
   "devDependencies": {
     "lerna": "7.4.2",

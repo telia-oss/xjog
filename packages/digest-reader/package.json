@@ -4,8 +4,8 @@
   "description": "XJog chart digest reader",
   "engines": {
     "npm": ">=8.19.4",
-    "yarn": "^1.22.8",
-    "node": ">=16.x"
+    "node": ">=24.x",
+    "pnpm": ">=10.33.0"
   },
   "keywords": [
     "statechart",
@@ -22,10 +22,10 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "yarn build:bin ; yarn build:files",
+    "build": "pnpm run build:bin && pnpm run build:files",
     "build:bin": "tsc",
     "build:files": "cpx-fixed 'src/**/*.sql' lib",
-    "prePublishOnly": "yarn build",
+    "prePublishOnly": "pnpm run build",
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {

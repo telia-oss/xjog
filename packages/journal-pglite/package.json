@@ -13,7 +13,7 @@
     "lib"
   ],
   "scripts": {
-    "build": "yarn build:bin ; yarn build:files",
+    "build": "pnpm run build:bin && pnpm run build:files",
     "build:bin": "tsc",
     "lint": "eslint src/**/*.ts && prettier --check src",
     "build:files": "cpx-fixed 'src/**/*.sql' lib",

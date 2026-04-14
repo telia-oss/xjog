@@ -17,13 +17,13 @@
     "lib/**/*"
   ],
   "scripts": {
-    "build": "yarn build:bin ; yarn build:files",
+    "build": "pnpm run build:bin && pnpm run build:files",
     "build:bin": "tsc",
     "build:files": "cpx-fixed 'src/**/*.sql' lib",
     "clean": "rm -rf node_modules lib",
     "format": "prettier --write 'src/**/*.ts'",
     "lint": "eslint src/**/*.ts && prettier --check src",
-    "prePublishOnly": "yarn build",
+    "prePublishOnly": "pnpm run build",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
   },
   "dependencies": {
