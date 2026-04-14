@@ -14,7 +14,12 @@
       "ansi-regex@>=5.0.0 <5.0.1": "5.0.1",
       "minimist": "^1.2.6",
       "shell-quote": "^1.7.3"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "nx"
+    ]
   },
   "devDependencies": {
     "lerna": "7.4.2",
