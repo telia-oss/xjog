@@ -761,12 +761,15 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   }
 
   protected async insertDeferredEvent(
-    PersistedDeferredEvent: Omit<
-      PersistedDeferredEvent,
-      'id' | 'due' | 'timestamp'
-    >,
+    PersistedDeferredEvent: Omit<PersistedDeferredEvent, 'id'>,
     connection: Pool | PoolClient = this.pool,
   ): Promise<PersistedDeferredEvent | null> {
+    const timestamp =
+      PersistedDeferredEvent.timestamp ?? Date.now();
+    const due =
+      PersistedDeferredEvent.due ??
+      timestamp + Math.ceil(PersistedDeferredEvent.delay);
+
     let toFieldStringRepresentation = null;
 
     if (PersistedDeferredEvent.eventTo) {
@@ -799,14 +802,14 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
           '  "eventId", "eventTo", "event", ' +
           '  "timestamp", "delay", ' +
           '  "due" ' +
-          ') VALUES (' +
+        ') VALUES (' +
           '  :machineId, :chartId, ' +
           '  :eventId, :eventTo, :event, ' +
-          '  transaction_timestamp(), :delay::bigint, ' +
-          '  transaction_timestamp() + make_interval(secs => :delay::bigint / 1000)' +
-          ') ' +
-          'RETURNING ' +
-          this.deferredEventSelectFields,
+          '  :timestamp_iso::timestamptz, :delay::bigint, ' +
+          '  :due_iso::timestamptz' +
+        ') ' +
+        'RETURNING ' +
+        this.deferredEventSelectFields,
         {
           machineId: PersistedDeferredEvent.ref.machineId,
           chartId: PersistedDeferredEvent.ref.chartId,
@@ -815,7 +818,9 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
           eventTo: JSON.stringify(toFieldStringRepresentation),
           event: JSON.stringify(PersistedDeferredEvent.event),
 
+          timestamp_iso: new Date(timestamp).toISOString(),
           delay: Math.ceil(PersistedDeferredEvent.delay),
+          due_iso: new Date(due).toISOString(),
         },
       ),
     );

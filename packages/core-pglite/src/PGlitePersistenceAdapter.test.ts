@@ -108,6 +108,36 @@ describe('PGlitePersistenceAdapter', () => {
     expect(event).toBeUndefined();
   });
 
+  it('should return a near-immediate due time for zero-delay events', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    await adapter.withTransaction(async (client) => {
+      return client.exec('DELETE FROM "deferredEvents"');
+    });
+
+    const before = Date.now();
+    const event = await adapter.deferEvent({
+      ref: {
+        machineId: 'machineId',
+        chartId: 'chartId',
+      },
+      event: {
+        type: 'internal',
+        name: 'test-zero-delay',
+        data: {},
+        $$type: 'scxml',
+      },
+      eventTo: null,
+      delay: 0,
+      lock: null,
+    });
+    const after = Date.now();
+
+    expect(event.delay).toBe(0);
+    expect(Number(event.due)).toBeGreaterThanOrEqual(before - 50);
+    expect(Number(event.due)).toBeLessThanOrEqual(after + 50);
+  });
+
   it('should release deferred events', async () => {
     const adapter = await PGlitePersistenceAdapter.connect();
     const event = await adapter.releaseDeferredEvent(
