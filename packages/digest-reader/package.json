@@ -29,8 +29,8 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-digest-persistence": "^0.0.31",
-    "@samihult/xjog-util": "^0.0.40"
+    "@samihult/xjog-digest-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^"
   },
   "devDependencies": {
     "@types/jest": "^27.0.1",

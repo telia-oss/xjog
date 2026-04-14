@@ -29,9 +29,9 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog": "^0.0.326",
-    "@samihult/xjog-journal-persistence": "^0.0.59",
-    "@samihult/xjog-util": "^0.0.40",
+    "@samihult/xjog": "workspace:^",
+    "@samihult/xjog-journal-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^",
     "pg": "^8.7.3",
     "pg-bind": "^1.0.1",
     "pg-listen": "^1.7.0",

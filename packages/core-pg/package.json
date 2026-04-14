@@ -29,8 +29,8 @@
     "clean": "rm -rf node_modules lib"
   },
   "dependencies": {
-    "@samihult/xjog-core-persistence": "^0.0.46",
-    "@samihult/xjog-util": "^0.0.40",
+    "@samihult/xjog-core-persistence": "workspace:^",
+    "@samihult/xjog-util": "workspace:^",
     "node-pg-migrate": "^6.2.1",
     "pg": "^8.7.3",
     "pg-bind": "^1.0.1",

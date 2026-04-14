@@ -23,11 +23,11 @@ importers:
   packages/core:
     dependencies:
       '@samihult/xjog-core-persistence':
-        specifier: ^0.0.46
-        version: 0.0.46
+        specifier: workspace:^
+        version: link:../core-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       async-mutex:
         specifier: ^0.3.2
         version: 0.3.2
@@ -42,8 +42,8 @@ importers:
         version: 4.26.1
     devDependencies:
       '@samihult/xjog-core-pglite':
-        specifier: ^0.0.9
-        version: 0.0.9(pg@8.20.0)
+        specifier: workspace:^
+        version: link:../core-pglite
       '@swc/cli':
         specifier: ^0.1.57
         version: 0.1.65(@swc/core@1.15.24)
@@ -102,8 +102,8 @@ importers:
   packages/core-persistence:
     dependencies:
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       uuid:
         specifier: ^8.3.2
         version: 8.3.2
@@ -136,11 +136,11 @@ importers:
   packages/core-pg:
     dependencies:
       '@samihult/xjog-core-persistence':
-        specifier: ^0.0.46
-        version: 0.0.46
+        specifier: workspace:^
+        version: link:../core-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       node-pg-migrate:
         specifier: ^6.2.1
         version: 6.2.2(pg@8.20.0)
@@ -194,11 +194,11 @@ importers:
         specifier: ^0.3.5
         version: 0.3.16
       '@samihult/xjog-core-persistence':
-        specifier: ^0.0.46
-        version: 0.0.46
+        specifier: workspace:^
+        version: link:../core-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       node-pg-migrate:
         specifier: ^6.2.1
         version: 6.2.2(pg@8.20.0)
@@ -246,8 +246,8 @@ importers:
   packages/digest-persistence:
     dependencies:
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
@@ -277,11 +277,11 @@ importers:
   packages/digest-pg:
     dependencies:
       '@samihult/xjog-digest-persistence':
-        specifier: ^0.0.31
-        version: 0.0.31(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../digest-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       node-pg-migrate:
         specifier: ^6.2.1
         version: 6.2.2(pg@8.20.0)
@@ -375,11 +375,11 @@ importers:
   packages/digest-reader:
     dependencies:
       '@samihult/xjog-digest-persistence':
-        specifier: ^0.0.31
-        version: 0.0.31(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../digest-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
@@ -455,8 +455,8 @@ importers:
   packages/journal-persistence:
     dependencies:
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       rfc6902:
         specifier: ^5.0.1
         version: 5.2.0
@@ -495,14 +495,14 @@ importers:
   packages/journal-pg:
     dependencies:
       '@samihult/xjog-core-persistence':
-        specifier: ^0.0.46
-        version: 0.0.46
+        specifier: workspace:^
+        version: link:../core-persistence
       '@samihult/xjog-journal-persistence':
-        specifier: ^0.0.59
-        version: 0.0.59(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../journal-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       node-pg-migrate:
         specifier: ^6.2.1
         version: 6.2.2(pg@8.20.0)
@@ -575,14 +575,14 @@ importers:
   packages/journal-reader:
     dependencies:
       '@samihult/xjog':
-        specifier: ^0.0.326
-        version: 0.0.326(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../core
       '@samihult/xjog-journal-persistence':
-        specifier: ^0.0.59
-        version: 0.0.59(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../journal-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
       pg:
         specifier: ^8.7.3
         version: 8.20.0
@@ -636,14 +636,14 @@ importers:
   packages/journal-writer:
     dependencies:
       '@samihult/xjog':
-        specifier: ^0.0.326
-        version: 0.0.326(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../core
       '@samihult/xjog-journal-persistence':
-        specifier: ^0.0.59
-        version: 0.0.59(rxjs@7.8.2)
+        specifier: workspace:^
+        version: link:../journal-persistence
       '@samihult/xjog-util':
-        specifier: ^0.0.40
-        version: 0.0.40
+        specifier: workspace:^
+        version: link:../util
     devDependencies:
       '@types/jest':
         specifier: ^27.0.1
@@ -1229,35 +1229,6 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
-
-  '@samihult/xjog-core-persistence@0.0.46':
-    resolution: {integrity: sha512-TQ/e5KEPAX75i1Mkt5DNYBnIYRGku05j6TyZpe+9areayD9kxwic/J69JVUj3RGBE23XqXRt3fn2G7H3TZcqsw==, tarball: https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/@samihult/xjog-core-persistence/-/@samihult/xjog-core-persistence-0.0.46.tgz}
-    engines: {node: '>=16.x', npm: '>=8.19.4', yarn: ^1.22.8}
-
-  '@samihult/xjog-core-pglite@0.0.9':
-    resolution: {integrity: sha512-TBMVLDeJhUGtPLJdH1Y4ZumIDyTkriE9BTxIOTV4gRUm9nhh16jeXdgISqHnUCC8AYOZnZD439hONnwIckYqGw==, tarball: https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/@samihult/xjog-core-pglite/-/@samihult/xjog-core-pglite-0.0.9.tgz}
-
-  '@samihult/xjog-digest-persistence@0.0.31':
-    resolution: {integrity: sha512-T0nUSmkG70PFceej4vDfLMQw9+Qf1pJsPNpT+JPfBux1aJ+lx6lLWe2YIjEOIxAb7jl+9oDodq5MBfiQhhklLA==, tarball: https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/@samihult/xjog-digest-persistence/-/@samihult/xjog-digest-persistence-0.0.31.tgz}
-    engines: {node: '>=16.x', npm: '>=8.19.4', yarn: ^1.22.8}
-    peerDependencies:
-      rxjs: ^7.8.2
-
-  '@samihult/xjog-journal-persistence@0.0.59':
-    resolution: {integrity: sha512-9R7+eTGCpdxgIGMuFkuviR2BBcWsRcuviKcLr1MlGJFTgAOfJG6Cio4dnkjOjaW8jsN90TW9b8PRP9esIedEMA==, tarball: https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/@samihult/xjog-journal-persistence/-/@samihult/xjog-journal-persistence-0.0.59.tgz}
-    engines: {node: '>=16.x', npm: '>=8.19.4', yarn: ^1.22.8}
-    peerDependencies:
-      rxjs: ^7.8.2
-
-  '@samihult/xjog-util@0.0.40':
-    resolution: {integrity: sha512-q/T2QjParKDaxotMeK+/u3Gb6PkJO/oIbSOd1JVeKofws367it06HZVh0dr7sxIoKOWk+mBnrcMHm5d0DwC0Dw==, tarball: https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/@samihult/xjog-util/-/@samihult/xjog-util-0.0.40.tgz}
-    engines: {node: '>=12.0.0', npm: '>=8.19.4', yarn: ^1.22.8}
-
-  '@samihult/xjog@0.0.326':
-    resolution: {integrity: sha512-NnENyjIVic1pGbO6/1RroasHcgE5sIb2B94Y7ty/037Xq+v6/mQVSh7TzHvO1WY6UMyXzWpP2CAaOkhWJYrCZw==, tarball: https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/@samihult/xjog/-/@samihult/xjog-0.0.326.tgz}
-    engines: {node: '>=16.x', npm: '>=8.19.4', yarn: ^1.22.8}
-    peerDependencies:
-      rxjs: ^7.8.2
 
   '@sigstore/bundle@1.1.0':
     resolution: {integrity: sha512-PFutXEy0SmQxYI4texPw3dd2KewuNqv7OuK1ZFtY2fM754yhvG2KdgwIhRnoEE2uHdtdGNQ8s0lb94dW9sELog==}
@@ -5291,46 +5262,6 @@ snapshots:
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
-
-  '@samihult/xjog-core-persistence@0.0.46':
-    dependencies:
-      '@samihult/xjog-util': 0.0.40
-      uuid: 8.3.2
-
-  '@samihult/xjog-core-pglite@0.0.9(pg@8.20.0)':
-    dependencies:
-      '@electric-sql/pglite': 0.3.16
-      '@samihult/xjog-core-persistence': 0.0.46
-      '@samihult/xjog-util': 0.0.40
-      node-pg-migrate: 6.2.2(pg@8.20.0)
-    transitivePeerDependencies:
-      - pg
-
-  '@samihult/xjog-digest-persistence@0.0.31(rxjs@7.8.2)':
-    dependencies:
-      '@samihult/xjog-util': 0.0.40
-      rxjs: 7.8.2
-
-  '@samihult/xjog-journal-persistence@0.0.59(rxjs@7.8.2)':
-    dependencies:
-      '@samihult/xjog-util': 0.0.40
-      rfc6902: 5.2.0
-      rxjs: 7.8.2
-      uuid: 8.3.2
-
-  '@samihult/xjog-util@0.0.40':
-    dependencies:
-      rfc6902: 5.2.0
-      xstate: 4.26.1
-
-  '@samihult/xjog@0.0.326(rxjs@7.8.2)':
-    dependencies:
-      '@samihult/xjog-core-persistence': 0.0.46
-      '@samihult/xjog-util': 0.0.40
-      async-mutex: 0.3.2
-      rxjs: 7.8.2
-      uuid: 8.3.2
-      xstate: 4.26.1
 
   '@sigstore/bundle@1.1.0':
     dependencies:
