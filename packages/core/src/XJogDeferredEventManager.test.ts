@@ -437,4 +437,71 @@ describe('XJogDeferredEventManager', () => {
       await deferredEventManager.releaseAll();
     }
   });
+
+  it('does not overlap takeUpcomingDeferredEvents when scheduleUpcoming is called concurrently', async () => {
+    let inFlightReads = 0;
+    let maxInFlightReads = 0;
+    let resolveFirstRead: (() => void) | undefined;
+    let notifyFirstReadStarted: (() => void) | undefined;
+
+    const firstReadStarted = new Promise<void>((resolve) => {
+      notifyFirstReadStarted = resolve;
+    });
+    const firstReadCanFinish = new Promise<void>((resolve) => {
+      resolveFirstRead = resolve;
+    });
+
+    const persistence = {
+      deferEvent: jest.fn(),
+      takeUpcomingDeferredEvents: jest.fn(async () => {
+        inFlightReads += 1;
+        maxInFlightReads = Math.max(maxInFlightReads, inFlightReads);
+
+        try {
+          if (notifyFirstReadStarted) {
+            notifyFirstReadStarted();
+            notifyFirstReadStarted = undefined;
+            await firstReadCanFinish;
+          }
+
+          return [];
+        } finally {
+          inFlightReads -= 1;
+        }
+      }),
+      removeDeferredEvent: jest.fn(),
+      releaseAllDeferredEvents: jest.fn(),
+    } as unknown as PersistenceAdapter;
+
+    const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
+      persistence,
+      {
+        batchSize: 5,
+        lookAhead: 1000,
+        interval: 1000,
+      },
+    );
+
+    try {
+      const firstSchedule = deferredEventManager.scheduleUpcoming();
+      await firstReadStarted;
+
+      await deferredEventManager.scheduleUpcoming();
+
+      expect(persistence.takeUpcomingDeferredEvents).toHaveBeenCalledTimes(1);
+      expect(maxInFlightReads).toBe(1);
+
+      resolveFirstRead!();
+      await firstSchedule;
+
+      await waitFor(25);
+
+      expect(persistence.takeUpcomingDeferredEvents).toHaveBeenCalledTimes(2);
+      expect(maxInFlightReads).toBe(1);
+    } finally {
+      // @ts-ignore test-only shutdown flag
+      xJog.dying = true;
+      await deferredEventManager.releaseAll();
+    }
+  });
 });

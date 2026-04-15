@@ -39,6 +39,13 @@ export class XJogDeferredEventManager {
    */
   private deferredEventTimers = new Map<string | number, NodeJS.Timeout>();
 
+  /**
+   * Guard against concurrent scheduleUpcoming executions which can cause
+   * deadlocks when two readDeferredEventRowBatch queries overlap.
+   */
+  private scheduling = false;
+  private rescheduleRequestedDuring = false;
+
   public constructor(private readonly xJog: XJog) {
     this.options = xJog.options.deferredEvents;
   }
@@ -179,54 +186,80 @@ export class XJogDeferredEventManager {
         ...args,
       });
 
-    this.deferredEventHandlerTimer = null;
-    this.nextReadAt = Number.MAX_SAFE_INTEGER;
-
-    // If dying, don't schedule anything new
-    if (this.xJog.dying) {
-      trace({ message: 'Stopping deferred event scheduling because dying' });
+    // Prevent concurrent execution — two overlapping readDeferredEventRowBatch
+    // CTE queries can deadlock when they try to UPDATE the same rows in
+    // different physical order.
+    if (this.scheduling) {
+      trace({ message: 'Already scheduling, deferring to current run' });
+      this.rescheduleRequestedDuring = true;
       return;
     }
 
-    trace({ message: 'Taking a batch of upcoming events' });
-    const deferredEvents: PersistedDeferredEvent[] =
-      await this.xJog.persistence.takeUpcomingDeferredEvents(
-        this.xJog.id,
-        this.options.lookAhead,
-        this.options.batchSize,
-        cid,
-      );
-    trace({ message: 'Batch of events taken', count: deferredEvents.length });
+    this.scheduling = true;
+    this.rescheduleRequestedDuring = false;
 
-    for (const PersistedDeferredEvent of deferredEvents) {
-      this.schedule(PersistedDeferredEvent, cid);
-    }
+    try {
+      this.deferredEventHandlerTimer = null;
+      this.nextReadAt = Number.MAX_SAFE_INTEGER;
 
-    // If the batch size matches with the read batch, there are probably more
-    // coming up. Schedule next read right after this batches last item.
-    if (deferredEvents.length === this.options.batchSize) {
-      const lastDeferredEvent = deferredEvents[deferredEvents.length - 1];
-      if (lastDeferredEvent) {
-        trace({
-          message:
-            'Scheduling next read after the due time of the last deferred event',
-          at: lastDeferredEvent,
-        });
-        this.rescheduleNextReadNoLaterThan(lastDeferredEvent.due);
-      } else {
-        trace({ message: 'Scheduling next read immediately' });
-        this.rescheduleNextReadNoLaterThan(Date.now());
+      // If dying, don't schedule anything new
+      if (this.xJog.dying) {
+        trace({ message: 'Stopping deferred event scheduling because dying' });
+        return;
       }
-    }
 
-    // If we read less items than the batch size, there are no items to be
-    // expected during the read interval. Schedule a regular read after that.
-    else {
-      this.rescheduleNextReadNoLaterThan(Date.now() + this.options.interval);
-      trace({
-        message: 'Scheduling next read after the regular interval',
-        after: this.options.interval,
-      });
+      trace({ message: 'Taking a batch of upcoming events' });
+      const deferredEvents: PersistedDeferredEvent[] =
+        await this.xJog.persistence.takeUpcomingDeferredEvents(
+          this.xJog.id,
+          this.options.lookAhead,
+          this.options.batchSize,
+          cid,
+        );
+      trace({ message: 'Batch of events taken', count: deferredEvents.length });
+
+      for (const PersistedDeferredEvent of deferredEvents) {
+        this.schedule(PersistedDeferredEvent, cid);
+      }
+
+      // If the batch size matches with the read batch, there are probably more
+      // coming up. Schedule next read right after this batches last item.
+      if (deferredEvents.length === this.options.batchSize) {
+        const lastDeferredEvent = deferredEvents[deferredEvents.length - 1];
+        if (lastDeferredEvent) {
+          trace({
+            message:
+              'Scheduling next read after the due time of the last deferred event',
+            at: lastDeferredEvent,
+          });
+          this.rescheduleNextReadNoLaterThan(lastDeferredEvent.due);
+        } else {
+          trace({ message: 'Scheduling next read immediately' });
+          this.rescheduleNextReadNoLaterThan(Date.now());
+        }
+      }
+
+      // If we read less items than the batch size, there are no items to be
+      // expected during the read interval. Schedule a regular read after that.
+      else {
+        this.rescheduleNextReadNoLaterThan(Date.now() + this.options.interval);
+        trace({
+          message: 'Scheduling next read after the regular interval',
+          after: this.options.interval,
+        });
+      }
+    } finally {
+      this.scheduling = false;
+
+      // A defer() call during execution requested a reschedule — honour it now.
+      // Use rescheduleNextReadAt (not NoLaterThan) because the timer handle from
+      // the blocked call is stale (already fired) but non-null, which would cause
+      // rescheduleNextReadNoLaterThan to skip scheduling.
+      if (this.rescheduleRequestedDuring) {
+        this.rescheduleRequestedDuring = false;
+        trace({ message: 'Rescheduling after deferred request during run' });
+        this.rescheduleNextReadAt(Date.now());
+      }
     }
   }
 
