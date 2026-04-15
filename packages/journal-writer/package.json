@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-writer",
-  "version": "0.0.81",
+  "version": "0.0.82",
   "description": "XJog chart journal writer",
   "engines": {
     "npm": ">=8.19.4",

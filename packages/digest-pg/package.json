@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-digest-pg",
-  "version": "0.0.125",
+  "version": "0.0.126",
   "description": "XJog Postgres digest persistence",
   "engines": {
     "npm": ">=8.19.4",
