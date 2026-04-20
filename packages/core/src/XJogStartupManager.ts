@@ -218,11 +218,10 @@ export class XJogStartupManager {
     refs: ChartReference[],
     cid = getCorrelationIdentifier(),
   ): Promise<void> {
-    const skipOnRehydrate =
-      this.xJog.options.startup.skipRunningActionsOnRehydrate;
-    if (skipOnRehydrate) {
-      return;
-    }
+    // runStep internally honors skipRunningActionsOnRehydrate — when the flag
+    // is set, it skips persisted state.actions but still executes reconstructed
+    // missing xstate.after(...) send actions, so stuck polling timers self-heal
+    // on adoption without replaying history.
     for (const ref of refs) {
       const adoptedChart = await this.xJog.getChart(ref, cid);
       await adoptedChart?.runStep(cid);
