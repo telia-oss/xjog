@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-persistence",
-  "version": "0.0.61",
+  "version": "0.0.62",
   "description": "XJog chart abstract journal persistence adapter",
   "engines": {
     "npm": ">=8.19.4",
