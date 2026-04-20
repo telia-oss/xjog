@@ -122,3 +122,46 @@ describe('XJogStartupManager: grace period timer must not reset on every cycle',
     clearTimeout(startupManager.adoptionLoopTimer);
   });
 });
+
+describe('XJogStartupManager.startAdoptedCharts: missing-after-timer repair', () => {
+  it('calls runStep on each adopted chart even when skipRunningActionsOnRehydrate=true', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+
+    xJog.options.startup.skipRunningActionsOnRehydrate = true;
+
+    const runStep = jest.fn().mockResolvedValue(undefined);
+    (xJog as unknown as { getChart: jest.Mock }).getChart = jest
+      .fn()
+      .mockResolvedValue({ runStep });
+
+    const refs = [
+      { machineId: 'm', chartId: 'c1' },
+      { machineId: 'm', chartId: 'c2' },
+    ];
+
+    // @ts-expect-error Private access
+    await startupManager.startAdoptedCharts(refs);
+
+    expect(runStep).toHaveBeenCalledTimes(refs.length);
+  });
+
+  it('still calls runStep when skipRunningActionsOnRehydrate=false (unchanged behavior)', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+
+    xJog.options.startup.skipRunningActionsOnRehydrate = false;
+
+    const runStep = jest.fn().mockResolvedValue(undefined);
+    (xJog as unknown as { getChart: jest.Mock }).getChart = jest
+      .fn()
+      .mockResolvedValue({ runStep });
+
+    // @ts-expect-error Private access
+    await startupManager.startAdoptedCharts([
+      { machineId: 'm', chartId: 'c1' },
+    ]);
+
+    expect(runStep).toHaveBeenCalledTimes(1);
+  });
+});
