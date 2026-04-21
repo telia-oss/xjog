@@ -57,6 +57,7 @@ import {
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
 } from './resolveXJogStateChange';
+
 import type { XJog } from './XJog';
 
 import {
@@ -1016,7 +1017,11 @@ export class XJogChart<
             async () => {
               const sendId = (action as CancelAction).sendId;
               trace({ message: 'Canceling event', sendId });
-              await this.xJog.deferredEventManager.cancel(sendId, cid);
+              await this.xJog.deferredEventManager.cancel(
+                sendId,
+                cid,
+                this.ref,
+              );
             },
           );
           break;

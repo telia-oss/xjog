@@ -504,4 +504,183 @@ describe('XJogDeferredEventManager', () => {
       await deferredEventManager.releaseAll();
     }
   });
+
+  describe('cancel with duplicate eventIds across chart instances', () => {
+    it('removes only the entry for the specified chart ref, not another chart sharing the same eventId', async () => {
+      const persistence = createInMemoryPersistence();
+      const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
+        persistence,
+        {
+          batchSize: 5,
+          lookAhead: 1000,
+          interval: 1000,
+        },
+      );
+
+      try {
+        const sharedEventId = 'xstate.after(60000)#machine.state';
+        const refA = { machineId: 'machine', chartId: 'chart-A' };
+        const refB = { machineId: 'machine', chartId: 'chart-B' };
+        const event = toSCXMLEvent({ type: sharedEventId });
+
+        const entryA: any = {
+          id: 101,
+          ref: refA,
+          eventId: sharedEventId,
+          eventTo: null,
+          event,
+          timestamp: Date.now(),
+          delay: 60000,
+          due: Date.now() + 60000,
+          lock: xJog.id,
+        };
+        const entryB: any = {
+          id: 202,
+          ref: refB,
+          eventId: sharedEventId,
+          eventTo: null,
+          event,
+          timestamp: Date.now(),
+          delay: 60000,
+          due: Date.now() + 60000,
+          lock: xJog.id,
+        };
+
+        // Insert Chart B FIRST so it sits at index 0. Current buggy code
+        // uses findIndex on eventId alone and will match this entry when
+        // cancelling Chart A, removing the wrong one.
+        // @ts-expect-error Private access
+        deferredEventManager.deferredEvents.push(entryB, entryA);
+
+        const timerA = setTimeout(() => {}, 99999);
+        const timerB = setTimeout(() => {}, 99999);
+
+        // @ts-expect-error Private access
+        deferredEventManager.deferredEventTimers.set(entryA.id, timerA);
+        // @ts-expect-error Private access
+        deferredEventManager.deferredEventTimers.set(entryB.id, timerB);
+
+        const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+        const removeDeferredEventSpy = jest.spyOn(
+          persistence,
+          'removeDeferredEvent',
+        );
+
+        try {
+          // Cancel Chart A's after-timer. Without ref-scoping the code
+          // matches by eventId alone and removes Chart B's entry instead.
+          await deferredEventManager.cancel(sharedEventId, undefined, refA);
+
+          // Chart B's entry must still be there.
+          // @ts-expect-error Private access
+          const remainingIds = deferredEventManager.deferredEvents.map(
+            (e: any) => e.id,
+          );
+          expect(remainingIds).toContain(entryB.id);
+          expect(remainingIds).not.toContain(entryA.id);
+
+          // clearTimeout should have been called with Chart A's handle only.
+          expect(clearTimeoutSpy).toHaveBeenCalledWith(timerA);
+          expect(clearTimeoutSpy).not.toHaveBeenCalledWith(timerB);
+
+          // persistence.removeDeferredEvent must target Chart A's row.
+          expect(removeDeferredEventSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ id: entryA.id }),
+            expect.anything(),
+          );
+          expect(removeDeferredEventSpy).not.toHaveBeenCalledWith(
+            expect.objectContaining({ id: entryB.id }),
+            expect.anything(),
+          );
+        } finally {
+          clearTimeoutSpy.mockRestore();
+          removeDeferredEventSpy.mockRestore();
+          clearTimeout(timerA);
+          clearTimeout(timerB);
+        }
+      } finally {
+        // @ts-ignore test-only shutdown flag
+        xJog.dying = true;
+        await deferredEventManager.releaseAll();
+      }
+    });
+
+    it('guards the schedule() setTimeout callback against splicing -1 when the entry was already removed', async () => {
+      jest.useFakeTimers();
+
+      const persistence = createInMemoryPersistence();
+      const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
+        persistence,
+        {
+          batchSize: 5,
+          lookAhead: 1000,
+          interval: 1000,
+        },
+      );
+
+      try {
+        const refX = { machineId: 'machine', chartId: 'chart-X' };
+        const refY = { machineId: 'machine', chartId: 'chart-Y' };
+        const event = toSCXMLEvent({ type: 'e' });
+
+        const entryX: any = {
+          id: 11,
+          ref: refX,
+          eventId: 'evt-x',
+          eventTo: null,
+          event,
+          timestamp: Date.now(),
+          delay: 10,
+          due: Date.now() + 10,
+          lock: xJog.id,
+        };
+        const entryY: any = {
+          id: 22,
+          ref: refY,
+          eventId: 'evt-y',
+          eventTo: null,
+          event,
+          timestamp: Date.now(),
+          delay: 1000,
+          due: Date.now() + 1000,
+          lock: xJog.id,
+        };
+
+        // schedule X (this sets up the setTimeout whose callback is the one
+        // we want to exercise) and then add Y to the list manually.
+        // @ts-expect-error Private access
+        deferredEventManager.schedule(entryX);
+        // @ts-expect-error Private access
+        deferredEventManager.deferredEvents.push(entryY);
+
+        // Simulate a cancel-race: entry X was already removed from the list
+        // before its own setTimeout fires.
+        // @ts-expect-error Private access
+        const xIndex = deferredEventManager.deferredEvents.findIndex(
+          (e: any) => e.id === entryX.id,
+        );
+        // @ts-expect-error Private access
+        deferredEventManager.deferredEvents.splice(xIndex, 1);
+
+        // Now only Y remains. Fire X's timer.
+        jest.advanceTimersByTime(10);
+        // Flush any pending microtasks from the async setTimeout callback.
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // Y must still be in the list — buggy splice(-1, 1) would have
+        // removed it as collateral damage.
+        // @ts-expect-error Private access
+        const remainingIds = deferredEventManager.deferredEvents.map(
+          (e: any) => e.id,
+        );
+        expect(remainingIds).toContain(entryY.id);
+      } finally {
+        jest.useRealTimers();
+        // @ts-ignore test-only shutdown flag
+        xJog.dying = true;
+        await deferredEventManager.releaseAll();
+      }
+    });
+  });
 });

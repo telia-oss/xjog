@@ -366,3 +366,103 @@ describe('XJogChart missing after repair', () => {
     ).toBe(false);
   });
 });
+
+describe('XJogChart: named delay on re-entry after parallel onDone', () => {
+  it('re-schedules the named after-timer with the resolved numeric delay on the second entry into waiting', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+
+    // Simplified reproduction of the poll-machine shape we see in production:
+    //   idle --(go)--> waiting --(after 'check interval')--> buffering (parallel)
+    //   buffering (both branches reach `done` via `always`) --(onDone)--> waiting
+    // The bug: on the second entry into `waiting` (via parallel onDone), xstate
+    // v4 does not run resolveSend on the generated after-action, so
+    // `action.delay` remains the string 'check interval' instead of being
+    // resolved to 60000 via machine.options.delays.
+    const machine = createMachine(
+      {
+        id: 'poll',
+        initial: 'idle',
+        states: {
+          idle: { on: { go: 'waiting' } },
+          waiting: {
+            after: { 'check interval': 'buffering' },
+          },
+          buffering: {
+            type: 'parallel',
+            states: {
+              a: {
+                initial: 'x',
+                states: {
+                  x: { always: { target: 'done' } },
+                  done: { type: 'final' },
+                },
+              },
+              b: {
+                initial: 'x',
+                states: {
+                  x: { always: { target: 'done' } },
+                  done: { type: 'final' },
+                },
+              },
+            },
+            onDone: { target: 'waiting' },
+          },
+        },
+      },
+      {
+        delays: {
+          'check interval': 60000,
+        },
+      },
+    );
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const chart = await xJogMachine.createChart();
+
+    const deferSpy = xJog.deferredEventManager.defer as jest.Mock;
+
+    // --- First cycle: go -> waiting. The after-action here is known to work. ---
+    await chart.send('go');
+
+    const firstCycleDeferCalls = deferSpy.mock.calls.filter(([persisted]) => {
+      return (
+        typeof persisted?.eventId === 'string' &&
+        persisted.eventId.startsWith('xstate.after(check interval)')
+      );
+    });
+
+    // Sanity: the first entry into `waiting` must have scheduled the after-timer
+    // with the resolved numeric delay. If this assertion fails, the bug is not
+    // what we think — the wiring is broken instead.
+    expect(firstCycleDeferCalls.length).toBeGreaterThanOrEqual(1);
+    expect(firstCycleDeferCalls[0][0].delay).toBe(60000);
+
+    // --- Second cycle: simulate the timer firing. ---
+    // waiting --(xstate.after(check interval))--> buffering
+    //   -> parallel `always` transitions resolve synchronously to `done`
+    //   -> onDone targets waiting -> waiting re-entered
+    //   -> new xstate.after(check interval) should be scheduled.
+    deferSpy.mockClear();
+
+    await chart.send({
+      type: 'xstate.after(check interval)#poll.waiting',
+    } as any);
+
+    const secondCycleDeferCalls = deferSpy.mock.calls.filter(([persisted]) => {
+      return (
+        typeof persisted?.eventId === 'string' &&
+        persisted.eventId.startsWith('xstate.after(check interval)')
+      );
+    });
+
+    // The bug surfaces here: either no defer call is made at all, OR it is
+    // made with a non-numeric (string) delay. Either way, the chart will not
+    // re-poll correctly.
+    expect(secondCycleDeferCalls.length).toBeGreaterThanOrEqual(1);
+    expect(secondCycleDeferCalls[0][0].delay).toBe(60000);
+    // Explicitly check the delay type — if xstate fails to resolve a named
+    // delay on the re-entry path, it would leak the string 'check interval'.
+    expect(typeof secondCycleDeferCalls[0][0].delay).toBe('number');
+  });
+});

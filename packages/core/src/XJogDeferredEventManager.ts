@@ -324,7 +324,9 @@ export class XJogDeferredEventManager {
       const eventIndex = this.deferredEvents.findIndex(
         (candidate) => candidate.id === persistedDeferredEvent.id,
       );
-      this.deferredEvents.splice(eventIndex, 1);
+      if (eventIndex >= 0) {
+        this.deferredEvents.splice(eventIndex, 1);
+      }
 
       // Remove the timer handle
       this.deferredEventTimers.delete(persistedDeferredEvent.id);
@@ -378,6 +380,7 @@ export class XJogDeferredEventManager {
   private async unschedule(
     eventId: number | string,
     cid = getCorrelationIdentifier(),
+    ref?: ChartReference,
   ): Promise<PersistedDeferredEvent | null> {
     const trace = (args: Record<string, any>) =>
       this.xJog.trace({
@@ -389,7 +392,14 @@ export class XJogDeferredEventManager {
 
     trace({ message: 'Searching for deferred event' });
     const deferredEventIndex = this.deferredEvents.findIndex(
-      (candidate: PersistedDeferredEvent) => candidate.eventId === eventId,
+      (candidate: PersistedDeferredEvent) => {
+        if (candidate.eventId !== eventId) return false;
+        if (!ref) return true;
+        return (
+          candidate.ref.machineId === ref.machineId &&
+          candidate.ref.chartId === ref.chartId
+        );
+      },
     );
 
     if (deferredEventIndex === -1) {
@@ -414,6 +424,7 @@ export class XJogDeferredEventManager {
   public async cancel(
     eventId: number | string,
     cid = getCorrelationIdentifier(),
+    ref?: ChartReference,
   ): Promise<void> {
     const trace = (args: Record<string, any>) =>
       this.xJog.trace({
@@ -423,7 +434,7 @@ export class XJogDeferredEventManager {
         ...args,
       });
 
-    const PersistedDeferredEvent = await this.unschedule(eventId, cid);
+    const PersistedDeferredEvent = await this.unschedule(eventId, cid, ref);
 
     // TODO should cancel anyways, scheduled or not (just to be safe)
 
