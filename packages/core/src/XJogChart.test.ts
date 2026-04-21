@@ -97,7 +97,6 @@ describe('XJogChart: executeActions must run even if changeSubject.next() throws
       throw new Error('Simulated subscriber error');
     });
 
-    // @ts-expect-error Private access
     const executeActionsSpy = jest.spyOn(chart, 'executeActions');
 
     await chart.send('go');
