@@ -20,6 +20,7 @@ import {
   type ActivityActionObject,
   type AnyEventObject,
   type CancelAction,
+  type DelayFunctionMap,
   type Event,
   type EventObject,
   Interpreter,
@@ -348,7 +349,11 @@ export class XJogChart<
     state: State<TContext, TEvent, TStateSchema, TTypeState>,
   ): Promise<Array<ActionObject<TContext, TEvent>>> {
     const afterActions = state.configuration.flatMap((stateNode) =>
-      XJogChart.resolveAfterActionsForStateNode(stateNode),
+      XJogChart.resolveAfterActionsForStateNode(
+        stateNode,
+        xJogMachine.machine.options.delays,
+        state.context,
+      ),
     );
 
     const missingAfterActions: Array<ActionObject<TContext, TEvent>> = [];
@@ -371,26 +376,93 @@ export class XJogChart<
     return missingAfterActions;
   }
 
+  /**
+   * Resolve a transition delay to a finite number of milliseconds.
+   *
+   * xstate stores the raw delay on the compiled transition: a number literal
+   * stays a number, but a named delay (`after: { 'check interval': ... }`)
+   * stays as the string key, and a function delay stays as a function. For
+   * the repair path we need a real numeric delay to hand to
+   * `deferredEventManager.defer`, so we look up named delays in
+   * `machine.options.delays`. Function resolvers are invoked with the chart's
+   * current context and a synthetic init event — the common shape is
+   * `(ctx) => ctx.someConfigValue`, which doesn't care about the event.
+   *
+   * Returns `null` when the delay cannot be resolved to a finite number. The
+   * caller filters these out rather than scheduling `setTimeout` with `NaN`
+   * or an unresolvable string.
+   */
+  private static resolveTransitionDelay<TContext, TEvent extends EventObject>(
+    delay: unknown,
+    delays: DelayFunctionMap<TContext, TEvent> | undefined,
+    context: TContext,
+  ): number | null {
+    const callDelayExpr = (fn: (...args: any[]) => any): number | null => {
+      try {
+        const resolved = fn(context, { type: ActionTypes.Init } as TEvent, {
+          _event: toSCXMLEvent({ type: ActionTypes.Init } as TEvent),
+        });
+        return typeof resolved === 'number' && Number.isFinite(resolved)
+          ? resolved
+          : null;
+      } catch {
+        return null;
+      }
+    };
+
+    if (typeof delay === 'number' && Number.isFinite(delay)) {
+      return delay;
+    }
+
+    if (typeof delay === 'function') {
+      return callDelayExpr(delay as (...args: any[]) => any);
+    }
+
+    if (typeof delay === 'string' && delays) {
+      const entry = delays[delay];
+
+      if (typeof entry === 'number' && Number.isFinite(entry)) {
+        return entry;
+      }
+
+      if (typeof entry === 'function') {
+        return callDelayExpr(entry as unknown as (...args: any[]) => any);
+      }
+    }
+
+    return null;
+  }
+
   private static resolveAfterActionsForStateNode<
     TContext,
     TEvent extends EventObject,
   >(
     stateNode: StateNode<TContext, any, TEvent>,
+    delays: DelayFunctionMap<TContext, TEvent> | undefined,
+    context: TContext,
   ): Array<ActionObject<TContext, TEvent>> {
     return stateNode.after
+      .map((transition) => ({
+        transition,
+        resolvedDelay: XJogChart.resolveTransitionDelay<TContext, TEvent>(
+          transition.delay,
+          delays,
+          context,
+        ),
+      }))
       .filter(
-        (transition) =>
+        ({ transition, resolvedDelay }) =>
           typeof transition.eventType === 'string' &&
           transition.eventType.startsWith('xstate.after(') &&
-          typeof transition.delay === 'number',
+          resolvedDelay !== null,
       )
       .map(
-        (transition) =>
+        ({ transition, resolvedDelay }) =>
           ({
             to: undefined,
             type: ActionTypes.Send,
             id: transition.eventType,
-            delay: transition.delay,
+            delay: resolvedDelay as number,
             event: { type: transition.eventType },
             _event: toSCXMLEvent({ type: transition.eventType }),
           }) as ActionObject<TContext, TEvent>,

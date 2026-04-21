@@ -222,9 +222,32 @@ export class XJogStartupManager {
     // is set, it skips persisted state.actions but still executes reconstructed
     // missing xstate.after(...) send actions, so stuck polling timers self-heal
     // on adoption without replaying history.
+    //
+    // Per-chart failures (e.g. machine.resolveState() throwing because a
+    // persisted state value refers to a state that no longer exists in the
+    // machine definition) must not abort adoption for the remaining charts.
+    // The bad chart stays paused in persistence and needs operator attention;
+    // the rest of the system must come up.
     for (const ref of refs) {
-      const adoptedChart = await this.xJog.getChart(ref, cid);
-      await adoptedChart?.runStep(cid);
+      try {
+        const adoptedChart = await this.xJog.getChart(ref, cid);
+        await adoptedChart?.runStep(cid);
+      } catch (error) {
+        this.xJog.error({
+          cid,
+          in: 'startAdoptedCharts',
+          ref,
+          message: 'Failed to adopt chart; skipping so startup can continue',
+          error:
+            error instanceof Error
+              ? {
+                  name: error.name,
+                  message: error.message,
+                  stack: error.stack,
+                }
+              : error,
+        });
+      }
     }
   }
 

@@ -32,14 +32,14 @@
     "@samihult/xjog-digest-persistence": "workspace:^",
     "@samihult/xjog-util": "workspace:^",
     "node-pg-migrate": "^6.2.1",
-    "pg": "^8.7.3",
+    "pg": "^8.16.3",
     "pg-bind": "^1.0.1",
     "pg-listen": "^1.7.0",
     "rfc6902": "^5.0.1",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "@types/pg": "^8.6.5"
+    "@types/pg": "^8.15.5"
   },
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb"
 }

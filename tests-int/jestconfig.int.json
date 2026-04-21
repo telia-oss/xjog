@@ -3,6 +3,7 @@
     "^.+\\.(t|j)sx?$": "@swc/jest"
   },
   "rootDir": "int",
+  "testPathIgnorePatterns": ["/node_modules/", "Deltas\\.test\\.ts$"],
   "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
   "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"]
 }

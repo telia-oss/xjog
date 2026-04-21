@@ -221,4 +221,148 @@ describe('XJogChart missing after repair', () => {
       expect.any(String),
     );
   });
+
+  it('reconstructs after-action when the delay is a named delay with a numeric entry in machine.options.delays', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine(
+      {
+        id: 'named-delay-number-machine',
+        initial: 'waiting',
+        states: {
+          waiting: {
+            after: {
+              'check interval': 'done',
+            },
+          },
+          done: { type: 'final' },
+        },
+      },
+      {
+        delays: {
+          'check interval': 60000,
+        },
+      },
+    );
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const service = interpret(machine).start();
+    const resolvedState = machine.resolveState(
+      State.create(JSON.parse(JSON.stringify(service.state))),
+    );
+
+    (xJogMachine.persistence as any).isDeferredEventPresent = jest
+      .fn()
+      .mockResolvedValue(false);
+
+    // @ts-expect-error Testing private helper intentionally
+    const repairedActions = await XJogChart.resolveMissingAfterActions(
+      xJogMachine,
+      'chart-named-delay-number',
+      resolvedState,
+    );
+
+    const afterAction = repairedActions.find(
+      (action: any) =>
+        action.id ===
+        'xstate.after(check interval)#named-delay-number-machine.waiting',
+    );
+    expect(afterAction).toBeDefined();
+    expect((afterAction as any).delay).toBe(60000);
+  });
+
+  it('reconstructs after-action when the delay resolver is a function of context', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine<{ intervalMs: number }>(
+      {
+        id: 'named-delay-function-machine',
+        initial: 'waiting',
+        context: { intervalMs: 45000 },
+        states: {
+          waiting: {
+            after: {
+              'check interval': 'done',
+            },
+          },
+          done: { type: 'final' },
+        },
+      },
+      {
+        delays: {
+          'check interval': (ctx) => ctx.intervalMs,
+        },
+      },
+    );
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const service = interpret(machine).start();
+    const resolvedState = machine.resolveState(
+      State.create(JSON.parse(JSON.stringify(service.state))),
+    );
+
+    (xJogMachine.persistence as any).isDeferredEventPresent = jest
+      .fn()
+      .mockResolvedValue(false);
+
+    // @ts-expect-error Testing private helper intentionally
+    const repairedActions = await XJogChart.resolveMissingAfterActions(
+      xJogMachine,
+      'chart-named-delay-function',
+      resolvedState,
+    );
+
+    const afterAction = repairedActions.find(
+      (action: any) =>
+        action.id ===
+        'xstate.after(check interval)#named-delay-function-machine.waiting',
+    );
+    expect(afterAction).toBeDefined();
+    expect((afterAction as any).delay).toBe(45000);
+  });
+
+  it('does not reconstruct an after-action when the named delay has no matching entry in machine.options.delays', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine({
+      id: 'unresolvable-named-delay-machine',
+      initial: 'waiting',
+      states: {
+        waiting: {
+          after: {
+            'check interval': 'done',
+          },
+        },
+        done: { type: 'final' },
+      },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const service = interpret(machine).start();
+    const resolvedState = machine.resolveState(
+      State.create(JSON.parse(JSON.stringify(service.state))),
+    );
+
+    (xJogMachine.persistence as any).isDeferredEventPresent = jest
+      .fn()
+      .mockResolvedValue(false);
+
+    // @ts-expect-error Testing private helper intentionally
+    const repairedActions = await XJogChart.resolveMissingAfterActions(
+      xJogMachine,
+      'chart-unresolvable-named-delay',
+      resolvedState,
+    );
+
+    expect(
+      repairedActions.some(
+        (action: any) =>
+          typeof action.id === 'string' &&
+          action.id.startsWith('xstate.after(check interval)'),
+      ),
+    ).toBe(false);
+  });
 });
