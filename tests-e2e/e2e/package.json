@@ -11,12 +11,12 @@
     "test": "jest --config jestconfig.e2e.json --runInBand --passWithNoTests"
   },
   "dependencies": {
-    "@swc/cli": "^0.1.57",
-    "@swc/core": "^1.2.223",
-    "@swc/jest": "^0.2.22",
-    "jest": "^28.1.2",
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.15.30",
+    "@swc/jest": "^0.2.39",
+    "jest": "^30.3.0",
     "node-pg-migrate": "^6.2.1",
-    "pg": "^8.7.3",
+    "pg": "^8.16.3",
     "xjog": "./xjog.tgz"
   }
 }

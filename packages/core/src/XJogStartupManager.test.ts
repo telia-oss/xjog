@@ -12,6 +12,7 @@ function mockXJogWithStartupManager(
     id: 'xjog-id',
     persistence,
     trace: trace ? console.log : () => {},
+    error: trace ? console.error : () => {},
     emit: jest.fn(),
     options: {
       startup: {
@@ -163,5 +164,90 @@ describe('XJogStartupManager.startAdoptedCharts: missing-after-timer repair', ()
     ]);
 
     expect(runStep).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('XJogStartupManager.startAdoptedCharts: per-chart error isolation', () => {
+  it('continues adopting remaining charts when getChart throws on one', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+
+    const runStep = jest.fn().mockResolvedValue(undefined);
+    const goodChart = { runStep };
+
+    (xJog as unknown as { getChart: jest.Mock }).getChart = jest
+      .fn()
+      .mockImplementation(async (ref: { chartId: string }) => {
+        if (ref.chartId === 'bad') {
+          throw new Error(
+            "Child state 'number selection' does not exist on 'mbb subscription config'",
+          );
+        }
+        return goodChart;
+      });
+
+    // @ts-expect-error Private access
+    await startupManager.startAdoptedCharts([
+      { machineId: 'm', chartId: 'good-1' },
+      { machineId: 'm', chartId: 'bad' },
+      { machineId: 'm', chartId: 'good-2' },
+    ]);
+
+    expect(runStep).toHaveBeenCalledTimes(2);
+  });
+
+  it('continues adopting remaining charts when runStep throws on one', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+
+    const healthyRunStep = jest.fn().mockResolvedValue(undefined);
+    const poisonedRunStep = jest
+      .fn()
+      .mockRejectedValue(new Error('runStep exploded'));
+
+    (xJog as unknown as { getChart: jest.Mock }).getChart = jest
+      .fn()
+      .mockImplementation(async (ref: { chartId: string }) => ({
+        runStep: ref.chartId === 'bad' ? poisonedRunStep : healthyRunStep,
+      }));
+
+    // @ts-expect-error Private access
+    await startupManager.startAdoptedCharts([
+      { machineId: 'm', chartId: 'good-1' },
+      { machineId: 'm', chartId: 'bad' },
+      { machineId: 'm', chartId: 'good-2' },
+    ]);
+
+    expect(healthyRunStep).toHaveBeenCalledTimes(2);
+    expect(poisonedRunStep).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs an error for each chart that fails to adopt', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+
+    const errorSpy = jest.fn();
+    (xJog as unknown as { error: jest.Mock }).error = errorSpy;
+
+    (xJog as unknown as { getChart: jest.Mock }).getChart = jest
+      .fn()
+      .mockRejectedValue(new Error('resolveState failed'));
+
+    // @ts-expect-error Private access
+    await startupManager.startAdoptedCharts([
+      { machineId: 'm', chartId: 'bad' },
+    ]);
+
+    const errorCall = errorSpy.mock.calls.find(
+      (call) =>
+        typeof call[0] === 'object' &&
+        call[0] !== null &&
+        (call[0] as Record<string, unknown>).in === 'startAdoptedCharts',
+    );
+    expect(errorCall).toBeDefined();
+    expect((errorCall![0] as Record<string, unknown>).ref).toEqual({
+      machineId: 'm',
+      chartId: 'bad',
+    });
   });
 });
