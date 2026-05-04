@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   PersistedDeferredEvent,
   PersistenceAdapter,
@@ -13,7 +14,6 @@ import {
 } from '@samihult/xjog-util';
 import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
 import { concat, filter, from, map, type Observable, of } from 'rxjs';
-import { v4 as uuidV4 } from 'uuid';
 import {
   type ActionObject,
   ActionTypes,
@@ -134,7 +134,7 @@ export class XJogChart<
       TEvent,
       TTypeState
     >,
-    public readonly id: string = uuidV4(),
+    public readonly id: string = randomUUID(),
     public readonly parentRef: ChartReference | null,
     private state: State<TContext, TEvent, TStateSchema, TTypeState>,
     private readonly options: ResolvedXJogChartOptions,
@@ -185,7 +185,7 @@ export class XJogChart<
 
       const ref: ChartReference = {
         machineId: xJogMachine.id,
-        chartId: options?.chartId ?? uuidV4(),
+        chartId: options?.chartId ?? randomUUID(),
       };
 
       const parentRef: ChartReference | null = options?.parentRef ?? null;
@@ -664,7 +664,7 @@ export class XJogChart<
     event: Event<TEvent> | SCXML.Event<TEvent>,
     context?: Partial<TContext> | ((context: TContext) => TContext),
     // TODO TBD if this really is required if not passed
-    sendId: string | number = uuidV4(),
+    sendId: string | number = randomUUID(),
     cid = getCorrelationIdentifier(),
   ): Promise<State<TContext, TEvent, TStateSchema, TTypeState> | null> {
     const logPayload = { cid, in: 'send', sendId };
@@ -982,7 +982,7 @@ export class XJogChart<
                 ref: this.ref,
                 event: action._event,
                 // TODO what should we send as eventId
-                eventId: action.id ?? uuidV4(),
+                eventId: action.id ?? randomUUID(),
                 // TODO should we also send actionId and sendId?
                 eventTo: action.to ?? null,
                 delay,

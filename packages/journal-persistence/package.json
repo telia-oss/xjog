@@ -31,10 +31,8 @@
   "dependencies": {
     "@samihult/xjog-util": "workspace:^",
     "rfc6902": "^5.0.1",
-    "uuid": "^8.3.2",
     "xstate": "4.26.1"
   },
-  "devDependencies": {},
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
   "peerDependencies": {
     "rxjs": "^7.8.2"

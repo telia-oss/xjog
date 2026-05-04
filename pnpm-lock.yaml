@@ -79,9 +79,6 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
       xstate:
         specifier: 4.26.1
         version: 4.26.1
@@ -95,9 +92,6 @@ importers:
       '@types/pg':
         specifier: ^8.15.5
         version: 8.15.5
-      '@types/uuid':
-        specifier: ^8.3.1
-        version: 8.3.4
       glob:
         specifier: ^8.0.3
         version: 8.1.0
@@ -107,16 +101,9 @@ importers:
       '@samihult/xjog-util':
         specifier: workspace:^
         version: link:../util
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
       xstate:
         specifier: 4.26.1
         version: 4.26.1
-    devDependencies:
-      '@types/uuid':
-        specifier: ^8.3.1
-        version: 8.3.4
 
   packages/core-pg:
     dependencies:
@@ -141,9 +128,6 @@ importers:
       rfc6902:
         specifier: ^5.0.1
         version: 5.2.0
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
       xstate:
         specifier: 4.26.1
         version: 4.26.1
@@ -202,9 +186,6 @@ importers:
       rfc6902:
         specifier: ^5.0.1
         version: 5.2.0
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
     devDependencies:
       '@types/pg':
         specifier: ^8.15.5
@@ -257,9 +238,6 @@ importers:
       pg-listen:
         specifier: ^1.7.0
         version: 1.7.0(pg@8.20.0)
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
     devDependencies:
       '@types/pg':
         specifier: ^8.15.5
@@ -276,9 +254,6 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
       xstate:
         specifier: 4.26.1
         version: 4.26.1
@@ -309,9 +284,6 @@ importers:
       rfc6902:
         specifier: ^5.0.1
         version: 5.2.0
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
     devDependencies:
       '@types/pg':
         specifier: ^8.15.5
@@ -361,9 +333,6 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
-      uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
       xstate:
         specifier: 4.26.1
         version: 4.26.1
@@ -1501,9 +1470,6 @@ packages:
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
-
-  '@types/uuid@8.3.4':
-    resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -4385,10 +4351,6 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  uuid@8.3.2:
-    resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
-    hasBin: true
-
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
 
@@ -5776,8 +5738,6 @@ snapshots:
       '@types/send': 0.17.6
 
   '@types/stack-utils@2.0.3': {}
-
-  '@types/uuid@8.3.4': {}
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -9023,8 +8983,6 @@ snapshots:
       punycode: 2.3.1
 
   util-deprecate@1.0.2: {}
-
-  uuid@8.3.2: {}
 
   v8-compile-cache-lib@3.0.1: {}
 
