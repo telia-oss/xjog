@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-util",
-  "version": "0.0.44",
+  "version": "0.0.45",
   "description": "XJog utils",
   "engines": {
     "npm": ">=8.19.4",
