@@ -195,14 +195,25 @@ export class XJogActivityManager {
               value,
             });
 
-            this.xJog.deferredEventManager.defer(
-              {
-                ref: activity.owner,
-                delay: 0,
-                event: toSCXMLEvent(value),
-              },
-              cid,
-            );
+            // Fire-and-forget: must not let a rejection escape to
+            // process.unhandledRejection, which would kill the host process.
+            this.xJog.deferredEventManager
+              .defer(
+                {
+                  ref: activity.owner,
+                  delay: 0,
+                  event: toSCXMLEvent(value),
+                },
+                cid,
+              )
+              .catch((err) => {
+                trace({
+                  level: 'error',
+                  in: 'activityManager.subscriber',
+                  message: 'Failed to defer event from activity',
+                  err,
+                });
+              });
           }
         },
 
@@ -221,10 +232,18 @@ export class XJogActivityManager {
               error,
             });
 
-            this.xJog.sendEvent(
-              activity.owner,
-              actions.error(activity.id, error),
-            );
+            // Fire-and-forget: must not let a rejection escape to
+            // process.unhandledRejection, which would kill the host process.
+            this.xJog
+              .sendEvent(activity.owner, actions.error(activity.id, error))
+              .catch((err) => {
+                trace({
+                  level: 'error',
+                  in: 'activityManager.subscriber',
+                  message: 'Failed to send error event from activity',
+                  err,
+                });
+              });
           }
         },
 
@@ -240,7 +259,16 @@ export class XJogActivityManager {
               message: 'Stopping activity',
             });
 
-            this.stopActivity(activity.owner, activity.id);
+            // Fire-and-forget: must not let a rejection escape to
+            // process.unhandledRejection, which would kill the host process.
+            this.stopActivity(activity.owner, activity.id).catch((err) => {
+              trace({
+                level: 'error',
+                in: 'activityManager.subscriber',
+                message: 'Failed to stop activity on completion',
+                err,
+              });
+            });
           }
         },
       });
