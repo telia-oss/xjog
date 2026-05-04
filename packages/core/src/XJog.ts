@@ -1,4 +1,4 @@
-import { v4 as uuidV4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { from, Observable, Subject } from 'rxjs';
 import { isPromiseLike, toSCXMLEvent } from 'xstate/lib/utils';
 import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
@@ -54,7 +54,7 @@ export class XJog extends XJogLogEmitter {
    * The unique id for this instance. Used for instance and
    * ownership tracking in the database.
    */
-  public readonly id = uuidV4();
+  public readonly id = randomUUID();
 
   /**
    * Persistence adapter
@@ -458,7 +458,7 @@ export class XJog extends XJogLogEmitter {
     event: Event<TEvent> | SCXML.Event<TEvent>,
     origin?: ChartReference,
     context?: Partial<TContext> | ((context: TContext) => TContext),
-    sendId: string | number = uuidV4(),
+    sendId: string | number = randomUUID(),
     cid = getCorrelationIdentifier(),
   ): Promise<State<any> | null> {
     return this.timeExecution('xjog.send event', async () => {

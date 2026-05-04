@@ -1,4 +1,4 @@
-import { v4 as uuidV4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import {
 	type EventObject,
 	State,
@@ -635,7 +635,7 @@ export abstract class PersistenceAdapter<
       const insertedEventRow = await this.insertDeferredEvent(
         {
           ref: deferredEventRow.ref,
-          eventId: deferredEventRow.eventId ?? uuidV4(),
+          eventId: deferredEventRow.eventId ?? randomUUID(),
           eventTo: deferredEventRow.eventTo ?? null,
           event: deferredEventRow.event,
           timestamp,

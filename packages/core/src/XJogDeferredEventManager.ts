@@ -1,4 +1,4 @@
-import { v4 as uuidV4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { PersistedDeferredEvent } from '@samihult/xjog-core-persistence';
 
 import {
@@ -115,7 +115,7 @@ export class XJogDeferredEventManager {
   ): Promise<void> {
     await this.xJog.timeExecution('xjog.deferred event.defer', async () => {
       if (!PersistedDeferredEvent.eventId) {
-        PersistedDeferredEvent.eventId = uuidV4();
+        PersistedDeferredEvent.eventId = randomUUID();
       }
 
       const trace = (args: Record<string, any>) =>

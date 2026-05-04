@@ -34,8 +34,7 @@
     "@samihult/xjog-util": "workspace:^",
     "pg": "^8.16.3",
     "pg-bind": "^1.0.1",
-    "pg-listen": "^1.7.0",
-    "uuid": "^8.3.2"
+    "pg-listen": "^1.7.0"
   },
   "devDependencies": {
     "@types/pg": "^8.15.5"
