@@ -88,4 +88,60 @@ describe('XJogActivityManager', () => {
 
     expect(activity.send).toHaveBeenCalledWith('test event');
   });
+
+  // Regression: when an invoked promise's actor surfaces a rejection through
+  // the activity-manager subscriber, the manager dispatches an
+  // `error.platform.<id>` event via `xJog.sendEvent(...)`. That call returns
+  // a promise. Before the fix the promise was fire-and-forget — if it
+  // rejected (e.g. the parent chart had just been torn down or its onError
+  // action threw during dispatch) the rejection escaped to
+  // `process.unhandledRejection`. In production this killed the pod via the
+  // process-level handler. The same shape applies to `next` (defer) and
+  // `complete` (stopActivity).
+  it('Does not leak unhandled rejections from sendEvent in the activity error subscriber', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, activityManager] = mockXJogWithActivityManager(persistence);
+
+    let captured: any = null;
+    const activity = {
+      id: 'activity-id',
+      owner: { machineId: 'machine-id', chartId: 'chart-id' },
+      toJSON: jest.fn(() => ({ id: 'activity-id' })),
+      send: jest.fn(),
+      subscribe: jest.fn((subscriber: any) => {
+        captured = subscriber;
+        return jest.fn();
+      }),
+      stop: jest.fn(),
+    } as unknown as ActivityRef;
+
+    (xJog.sendEvent as jest.Mock).mockRejectedValue(
+      new Error('Synthetic sendEvent failure'),
+    );
+
+    const unhandled: unknown[] = [];
+    const handler = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', handler);
+
+    try {
+      await activityManager.registerActivity(activity);
+      expect(captured).not.toBeNull();
+
+      // Mimic what XJogChart.spawnPromise does on rejection: invoke the
+      // subscriber's error callback. This synchronously fires-and-forgets
+      // `xJog.sendEvent(...)`.
+      captured.error(new Error('Activity rejected'));
+
+      // Yield enough microtasks for the rejected sendEvent promise to be
+      // observed as unhandled if no .catch was attached.
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(xJog.sendEvent).toHaveBeenCalled();
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', handler);
+      await activityManager.stopAndUnregisteredActivity(activity);
+    }
+  });
 });
