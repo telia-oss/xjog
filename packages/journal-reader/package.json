@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-journal-reader",
-  "version": "0.0.69",
+  "version": "0.0.70",
   "description": "XJog chart journal reader",
   "engines": {
     "npm": ">=8.19.4",
