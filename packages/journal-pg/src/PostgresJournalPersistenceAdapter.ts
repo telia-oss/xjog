@@ -370,25 +370,23 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
 
     // Received a notification of a new journal entry
     journalSubscriber.notifications.on(channel, async () => {
-      this.queryEntries({
+      const journalEntries = await this.queryEntries({
         afterId: journalEntryIdPointer,
         updatedAfterAndIncluding: startTime,
         order: 'DESC',
-      }).then((journalEntries: JournalEntry[]) => {
-        if (journalEntries.length) {
-          yieldJournalEntries(journalEntries);
-        }
       });
+      if (journalEntries.length) {
+        yieldJournalEntries(journalEntries);
+      }
 
-      this.queryFullStates({
+      const fullStateEntries = await this.queryFullStates({
         afterId: fullStateEntryIdPointer,
         updatedAfterAndIncluding: startTime,
         order: 'DESC',
-      }).then((fullStateEntries: FullStateEntry[]) => {
-        if (fullStateEntries.length) {
-          yieldFullStateEntries(fullStateEntries);
-        }
       });
+      if (fullStateEntries.length) {
+        yieldFullStateEntries(fullStateEntries);
+      }
     });
 
     journalSubscriber.events.on('error', (error) => {
