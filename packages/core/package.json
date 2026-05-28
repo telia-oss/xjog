@@ -1,48 +1,48 @@
 {
-  "name": "@samihult/xjog",
-  "version": "0.0.332",
-  "description": "XState chart runner for long-running charts",
-  "engines": {
-    "npm": ">=8.19.4",
-    "node": ">=24.x",
-    "pnpm": ">=10.33.0"
-  },
-  "keywords": [
-    "statechart",
-    "harel",
-    "xstate"
-  ],
-  "repository": "https://github.com/samihult/xjog",
-  "homepage": "https://www.xjog.io/",
-  "author": "Sami Hult <sami.hult@gmail.com>",
-  "license": "MIT",
-  "private": false,
-  "main": "lib",
-  "files": [
-    "lib/**/*"
-  ],
-  "scripts": {
-    "build": "pnpm exec tsc",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest --config jestconfig.js --passWithNoTests",
-    "lint": "pnpm exec eslint src/**/*.ts && pnpm exec prettier --check src",
-    "format": "pnpm exec prettier --write 'src/**/*.ts'",
-    "prepublishOnly": "pnpm run lint && pnpm run build && echo 'should also run: pnpm run test + pnpm run check'",
-    "clean": "rm -rf node_modules lib"
-  },
-  "dependencies": {
-    "@samihult/xjog-core-persistence": "workspace:^",
-    "@samihult/xjog-util": "workspace:^",
-    "async-mutex": "^0.3.2",
-    "xstate": "4.26.1"
-  },
-  "devDependencies": {
-    "@samihult/xjog-core-pglite": "workspace:^",
-    "@types/express": "^4.17.13",
-    "@types/pg": "^8.15.5",
-    "glob": "^8.0.3"
-  },
-  "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
-  "peerDependencies": {
-    "rxjs": "^7.8.2"
-  }
+	"name": "@samihult/xjog",
+	"version": "0.0.332",
+	"description": "XState chart runner for long-running charts",
+	"engines": {
+		"npm": ">=8.19.4",
+		"node": ">=24.x",
+		"pnpm": ">=10.33.0"
+	},
+	"keywords": [
+		"statechart",
+		"harel",
+		"xstate"
+	],
+	"repository": "https://github.com/samihult/xjog",
+	"homepage": "https://www.xjog.io/",
+	"author": "Sami Hult <sami.hult@gmail.com>",
+	"license": "MIT",
+	"private": false,
+	"main": "lib",
+	"files": [
+		"lib/**/*"
+	],
+	"scripts": {
+		"build": "pnpm exec tsc",
+		"test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest --config jestconfig.js --passWithNoTests",
+		"lint": "pnpm exec eslint src/**/*.ts && pnpm exec prettier --check src",
+		"format": "pnpm exec prettier --write 'src/**/*.ts'",
+		"prepublishOnly": "pnpm run lint && pnpm run build && echo 'should also run: pnpm run test + pnpm run check'",
+		"clean": "rm -rf node_modules lib"
+	},
+	"dependencies": {
+		"@samihult/xjog-core-persistence": "workspace:^",
+		"@samihult/xjog-util": "workspace:^",
+		"async-mutex": "^0.3.2",
+		"xstate": "4.26.1"
+	},
+	"devDependencies": {
+		"@samihult/xjog-core-pglite": "workspace:^",
+		"@types/express": "^4.17.13",
+		"@types/pg": "8.20.0",
+		"glob": "^8.0.3"
+	},
+	"gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
+	"peerDependencies": {
+		"rxjs": "^7.8.2"
+	}
 }
