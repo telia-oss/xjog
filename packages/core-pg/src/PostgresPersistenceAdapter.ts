@@ -95,6 +95,9 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     // TODO pass logging to the pool
     const pool = new Pool(poolConfiguration);
     const adapter = new PostgresPersistenceAdapter(pool, poolConfiguration);
+    pool.on('error', (err) =>
+      adapter.error('Pool emitted error', { err }),
+    );
 
     let migrationClient;
     try {

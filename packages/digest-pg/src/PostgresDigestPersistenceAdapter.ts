@@ -89,7 +89,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
     key: string,
     value: string,
   ): Promise<number> {
-    const result = this.pool.query(
+    const result = await this.pool.query(
       bind(
         'INSERT INTO "digests" ' +
           '( ' +
@@ -125,7 +125,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
   }
 
   public async deleteDigest(ref: ChartReference, key: string): Promise<number> {
-    const result = this.pool.query(
+    const result = await this.pool.query(
       bind(
         'DELETE FROM "digests" ' +
           'WHERE "machineId" = :machineId AND "chartId" = :chartId AND "key" = :key ',
@@ -141,7 +141,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
   }
 
   public async deleteByChart(ref: ChartReference): Promise<number> {
-    const result = this.pool.query(
+    const result = await this.pool.query(
       bind(
         'DELETE FROM "digests" ' +
           'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
@@ -455,7 +455,12 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
       this.newDigestEntriesSubject.error(error);
     });
 
-    digestSubscriber.connect().then(() => digestSubscriber.listenTo(channel));
+    digestSubscriber
+      .connect()
+      .then(() => digestSubscriber.listenTo(channel))
+      .catch((err) =>
+        this.error('Failed to connect digest subscriber', { err }),
+      );
 
     return async () => {
       await digestSubscriber.close();

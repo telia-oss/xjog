@@ -394,7 +394,12 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
       this.newFullStateEntriesSubject.error(error);
     });
 
-    journalSubscriber.connect().then(() => journalSubscriber.listenTo(channel));
+    journalSubscriber
+      .connect()
+      .then(() => journalSubscriber.listenTo(channel))
+      .catch((err) =>
+        this.error('Failed to connect journal subscriber', { err }),
+      );
 
     return async () => {
       await journalSubscriber.close();
