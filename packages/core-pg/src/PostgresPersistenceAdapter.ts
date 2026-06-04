@@ -169,12 +169,27 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     );
   }
 
-  protected async deleteInstance(
+  protected async markInstanceDying(
     id: string,
     connection: Pool | PoolClient = this.pool,
   ): Promise<void> {
-    // TODO re-enable or make a cleanup with some lookbehind period
-    // await connection.query('DELETE FROM instances WHERE "instanceId"=$1', [id]);
+    await connection.query(
+      bind('UPDATE "instances" SET "dying"=TRUE WHERE "instanceId"=:id', { id }),
+    );
+  }
+
+  protected async reapDeadInstances(
+    retentionMs: number,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<void> {
+    await connection.query(
+      bind(
+        'DELETE FROM "instances" ' +
+          'WHERE "dying"=TRUE ' +
+          'AND "timestamp" < now() - make_interval(secs => :seconds)',
+        { seconds: retentionMs / 1000 },
+      ),
+    );
   }
 
   protected async markAllInstancesDying(

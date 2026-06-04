@@ -179,3 +179,55 @@ describe('PGlitePersistenceAdapter: orphan-locked deferred events released on st
     expect(after.rows[0].lock).toBeNull();
   });
 });
+
+describe('PGlitePersistenceAdapter: instance deregistration on graceful shutdown', () => {
+  it('removeInstance excludes the instance from countAliveInstances', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    // overthrowOtherInstances marks all existing rows dying and inserts self
+    // as the sole alive (dying=FALSE) instance — the clean-startup state.
+    await adapter.overthrowOtherInstances('lone-instance', 'cid');
+    expect(await adapter.countAliveInstances()).toBe(1);
+
+    // Graceful shutdown calls removeInstance. Regression: this used to be a
+    // no-op, so the departing instance still counted itself as alive
+    // (countAliveInstances stayed 1), driving XJog.shutdown()'s adoption wait
+    // into an infinite loop with no successor to adopt its charts.
+    await adapter.removeInstance('lone-instance', 'cid');
+    expect(await adapter.countAliveInstances()).toBe(0);
+  });
+
+  it('reaps long-dead instance rows on startup but keeps recent ones', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    await adapter.withTransaction(async (client) => {
+      await client.exec('DELETE FROM "instances"');
+      // Dying for longer than the retention window — should be reaped.
+      await client.exec(
+        `INSERT INTO "instances" ("instanceId", "dying", "timestamp")
+         VALUES ('stale-dead', TRUE, now() - interval '2 hours')`,
+      );
+      // Recently marked dying — within retention, must be kept.
+      await client.exec(
+        `INSERT INTO "instances" ("instanceId", "dying", "timestamp")
+         VALUES ('recent-dead', TRUE, now())`,
+      );
+    });
+
+    // overthrowOtherInstances inserts the new instance and reaps stale rows.
+    await adapter.overthrowOtherInstances('newbie', 'cid');
+
+    const rows = await adapter.withTransaction(async (client) => {
+      return client.query<{ instanceId: string }>(
+        'SELECT "instanceId" FROM "instances" ORDER BY "instanceId"',
+      );
+    });
+    const ids = rows.rows.map((r) => r.instanceId);
+
+    expect(ids).toContain('newbie');
+    expect(ids).toContain('recent-dead');
+    expect(ids).not.toContain('stale-dead');
+    // Only the freshly inserted instance is alive.
+    expect(await adapter.countAliveInstances()).toBe(1);
+  });
+});

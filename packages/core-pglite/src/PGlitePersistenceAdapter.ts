@@ -165,12 +165,26 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     );
   }
 
-  protected async deleteInstance(
+  protected async markInstanceDying(
     id: string,
     connection: PGlite = this.pool,
   ): Promise<void> {
-    // TODO re-enable or make a cleanup with some lookbehind period
-    // await connection.query('DELETE FROM instances WHERE "instanceId"=$1', [id]);
+    await connection.query(
+      'UPDATE "instances" SET "dying"=TRUE WHERE "instanceId"=$1',
+      [id],
+    );
+  }
+
+  protected async reapDeadInstances(
+    retentionMs: number,
+    connection: PGlite = this.pool,
+  ): Promise<void> {
+    await connection.query(
+      'DELETE FROM "instances" ' +
+        'WHERE "dying"=TRUE ' +
+        'AND "timestamp" < now() - make_interval(secs => $1)',
+      [retentionMs / 1000],
+    );
   }
 
   protected async markAllInstancesDying(
