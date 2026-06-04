@@ -28,10 +28,11 @@ function mapState<
   TEmitted = any,
 >(
   state: State<TContext, TEvent, TStateSchema, TTypeState>,
+  clone = true,
 ): XJogStateChangeState {
   return {
-    value: JSON.parse(JSON.stringify(state.value)),
-    context: JSON.parse(JSON.stringify(state.context)),
+    value: clone ? structuredClone(state.value) : state.value,
+    context: clone ? structuredClone(state.context) : state.context,
     actions: mapActions(state.actions),
   };
 }
