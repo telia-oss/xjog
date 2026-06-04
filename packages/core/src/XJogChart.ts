@@ -527,11 +527,18 @@ export class XJogChart<
       const trace = (...args: Array<string | Record<string, unknown>>) =>
         this.trace({ cid, in: 'runStep' }, ...args);
 
-      const stateBeforeTransition = {
+      // actions is safe by reference: xstate's machine.transition() always
+      // allocates a new State with a new actions array, so the pre-transition
+      // array is never mutated after this snapshot. mapState (the only consumer
+      // of this snapshot) reads only value/context/actions.
+      const stateBeforeTransition: Pick<
+        State<TContext, TEvent, TStateSchema, TTypeState>,
+        'value' | 'context' | 'actions'
+      > = {
         value: structuredClone(this.state.value),
         context: structuredClone(this.state.context),
         actions: this.state.actions,
-      } as State<TContext, TEvent, TStateSchema, TTypeState>;
+      };
 
       const missingAfterActions = await XJogChart.resolveMissingAfterActions(
         this.xJogMachine,
@@ -573,7 +580,12 @@ export class XJogChart<
       const change = resolveXJogUpdateStateChange(
         this.ref,
         this.parentRef,
-        stateBeforeTransition,
+        stateBeforeTransition as State<
+          TContext,
+          TEvent,
+          TStateSchema,
+          TTypeState
+        >,
         this.state,
       );
 
@@ -746,19 +758,24 @@ export class XJogChart<
       );
 
       trace({ message: 'Saving the current state' });
-      const stateBeforeTransition = {
+      // actions is safe by reference: xstate's machine.transition() always
+      // allocates a new State with a new actions array, so the pre-transition
+      // array is never mutated after this snapshot. mapState (the only consumer
+      // of this snapshot) reads only value/context/actions.
+      const stateBeforeTransition: Pick<
+        State<TContext, TEvent, TStateSchema, TTypeState>,
+        'value' | 'context' | 'actions'
+      > = {
         value: structuredClone(this.state.value),
         context: structuredClone(this.state.context),
         actions: this.state.actions,
-      } as State<TContext, TEvent, TStateSchema, TTypeState>;
+      };
 
       try {
         if (context) {
           if (isFunction(context)) {
             trace({ message: 'Reducing context' });
-            this.state.context = context(
-              JSON.parse(JSON.stringify(this.state.context)),
-            );
+            this.state.context = context(structuredClone(this.state.context));
           } else {
             trace({ message: 'Patching context' });
             this.state.context = Object.assign({}, this.state.context, context);
@@ -779,7 +796,12 @@ export class XJogChart<
         const change = resolveXJogUpdateStateChange(
           this.ref,
           this.parentRef,
-          stateBeforeTransition,
+          stateBeforeTransition as State<
+            TContext,
+            TEvent,
+            TStateSchema,
+            TTypeState
+          >,
           this.state,
         );
 
