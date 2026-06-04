@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-core-pglite",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Lightweight PG adapter",
   "keywords": [
     "pg"
