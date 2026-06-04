@@ -527,7 +527,11 @@ export class XJogChart<
       const trace = (...args: Array<string | Record<string, unknown>>) =>
         this.trace({ cid, in: 'runStep' }, ...args);
 
-      const stateBeforeTransition = JSON.parse(JSON.stringify(this.state));
+      const stateBeforeTransition = {
+        value: structuredClone(this.state.value),
+        context: structuredClone(this.state.context),
+        actions: this.state.actions,
+      } as State<TContext, TEvent, TStateSchema, TTypeState>;
 
       const missingAfterActions = await XJogChart.resolveMissingAfterActions(
         this.xJogMachine,
@@ -742,7 +746,11 @@ export class XJogChart<
       );
 
       trace({ message: 'Saving the current state' });
-      const stateBeforeTransition = JSON.parse(JSON.stringify(this.state));
+      const stateBeforeTransition = {
+        value: structuredClone(this.state.value),
+        context: structuredClone(this.state.context),
+        actions: this.state.actions,
+      } as State<TContext, TEvent, TStateSchema, TTypeState>;
 
       try {
         if (context) {

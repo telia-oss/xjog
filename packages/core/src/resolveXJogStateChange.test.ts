@@ -21,17 +21,29 @@ function stateWith(ctx: Ctx): State<Ctx> {
 }
 
 describe('resolveXJogUpdateStateChange', () => {
-  it('emits independent deep copies of old and new context', () => {
+  it('clones the NEW state context independently', () => {
     const oldState = stateWith({ count: 0, blob: { nested: [1, 2, 3] } });
     const newState = stateWith({ count: 1, blob: { nested: [9] } });
+
     const change = resolveXJogUpdateStateChange(ref, null, oldState, newState);
-    oldState.context.blob.nested.push(999);
+
     newState.context.blob.nested.push(999);
+
     expect(change.type).toBe('update');
-    expect((change.old?.context as Ctx).count).toBe(0);
-    expect((change.old?.context as Ctx).blob.nested).toEqual([1, 2, 3]);
     expect((change.new?.context as Ctx).count).toBe(1);
     expect((change.new?.context as Ctx).blob.nested).toEqual([9]);
+    expect(change.new?.context).not.toBe(newState.context);
+  });
+
+  it('passes the OLD state through by reference (caller owns the snapshot)', () => {
+    const oldState = stateWith({ count: 0, blob: { nested: [1, 2, 3] } });
+    const newState = stateWith({ count: 1, blob: { nested: [9] } });
+
+    const change = resolveXJogUpdateStateChange(ref, null, oldState, newState);
+
+    // old side is NOT re-cloned — it is the caller's snapshot, by reference.
+    expect(change.old?.context).toBe(oldState.context);
+    expect((change.old?.context as Ctx).count).toBe(0);
   });
 
   it('deep-clones via structuredClone, not a JSON round-trip', () => {

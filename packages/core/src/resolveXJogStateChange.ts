@@ -83,7 +83,7 @@ export function resolveXJogUpdateStateChange<
     ref,
     parentRef,
     event: toEventObject(nextState.event),
-    old: mapState(previousState),
+    old: mapState(previousState, false),
     new: mapState(nextState),
   };
 }
