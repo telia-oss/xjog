@@ -28,6 +28,8 @@ function mapState<
   TEmitted = any,
 >(
   state: State<TContext, TEvent, TStateSchema, TTypeState>,
+  // clone=false lets callers skip re-cloning a value they already snapshotted
+  // (e.g. XJogChart's pre-transition state). Default clones for safety.
   clone = true,
 ): XJogStateChangeState {
   return {
