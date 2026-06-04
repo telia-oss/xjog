@@ -295,15 +295,25 @@ export class XJog extends XJogLogEmitter {
     // Before shutting down we must wait until all charts have been adopted.
     // This way the incoming events get handled – deferred though instead
     // of being sent to the corresponding activities.
-    if (instanceCount > 0) {
+    const { ownChartPollingFrequency, adoptionTimeout } = this.options.shutdown;
+
+    if (instanceCount > 0 && adoptionTimeout > 0) {
       trace('Waiting for charts to be adopted by others');
+      // Bound the wait: if no successor adopts the charts (e.g. the adopting
+      // instance dies mid-handoff), proceed to halt instead of blocking forever.
+      // Unadopted charts are re-adopted by the next instance on its startup.
+      const deadline = Date.now() + adoptionTimeout;
       let ownCharts = await this.persistence.countOwnCharts(this.id);
-      while (ownCharts > 0) {
-        await waitFor(this.options.shutdown.ownChartPollingFrequency);
+      while (ownCharts > 0 && Date.now() < deadline) {
+        await waitFor(ownChartPollingFrequency);
         trace('Still waiting...', { ownCharts });
         ownCharts = await this.persistence.countOwnCharts(this.id);
       }
-      trace('No more own charts left');
+      if (ownCharts > 0) {
+        trace('Adoption timed out; proceeding to halt', { ownCharts });
+      } else {
+        trace('No more own charts left');
+      }
     }
 
     trace('Emitting halt event');

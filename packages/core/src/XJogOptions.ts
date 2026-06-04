@@ -35,6 +35,13 @@ export type XJogOptions = {
   shutdown?: {
     /** How often to poll for own charts during the shutdown */
     ownChartPollingFrequency?: number;
+    /**
+     * Maximum time to wait for other instances to adopt this instance's charts
+     * during shutdown before proceeding to halt. Defaults to 30000 ms. Set to
+     * 0 to skip waiting entirely. Charts left unadopted on timeout are re-adopted
+     * by the next instance on its startup, so none are lost.
+     */
+    adoptionTimeout?: number;
   };
 };
 
@@ -57,6 +64,7 @@ export type ResolvedXJogOptions = {
   };
   shutdown: {
     ownChartPollingFrequency: number;
+    adoptionTimeout: number;
   };
 };
 
@@ -158,7 +166,16 @@ export function resolveShutdownOptions(
     trace,
   );
 
+  // Minimum 0 so callers can disable the adoption wait entirely.
+  const adoptionTimeout = pickIntegerOption(
+    options?.adoptionTimeout,
+    30000,
+    0,
+    trace,
+  );
+
   return {
     ownChartPollingFrequency,
+    adoptionTimeout,
   };
 }

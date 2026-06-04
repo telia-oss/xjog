@@ -15,6 +15,15 @@ import {
 import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 
 /**
+ * How long an instance row may stay marked `dying` (measured from when it
+ * entered the dying state, which `markInstanceDying`/`markAllInstancesDying`
+ * stamp onto `timestamp`) before it is reaped on the next startup. Long enough
+ * that an instance just overthrown still sees its own death note and shuts
+ * down before its row disappears, short enough to bound `instances` growth.
+ */
+export const DEAD_INSTANCE_RETENTION_MS = 60 * 60 * 1000;
+
+/**
  * Abstract adapter class for XJog persistence.
  * @hideconstructor
  */
@@ -50,10 +59,26 @@ export abstract class PersistenceAdapter<
   ): Promise<void>;
 
   /**
+   * Mark a single instance as dying so it stops counting as alive
+   * ({@link countAliveInstances} excludes `dying=TRUE` rows). Used on graceful
+   * shutdown to deregister the departing instance.
+   *
    * @abstract
    */
-  protected abstract deleteInstance(
+  protected abstract markInstanceDying(
     id: string,
+    connection?: ConnectionType,
+  ): Promise<void>;
+
+  /**
+   * Delete instance rows that have been marked dying for longer than
+   * `retentionMs`. Bounds growth of the `instances` table and lets rows left
+   * behind by killed processes age out. Never touches `dying=FALSE` rows.
+   *
+   * @abstract
+   */
+  protected abstract reapDeadInstances(
+    retentionMs: number,
     connection?: ConnectionType,
   ): Promise<void>;
 
@@ -377,6 +402,12 @@ export abstract class PersistenceAdapter<
 
       trace({ message: 'Adding the instance to the list' });
       await this.insertInstance(instanceId, connection);
+
+      // Reap instance rows that have been dying past the retention window.
+      // These are left behind by graceful shutdowns and by processes killed
+      // without one; without this the table grows one row per process start.
+      trace({ message: 'Reaping long-dead instances' });
+      await this.reapDeadInstances(DEAD_INSTANCE_RETENTION_MS, connection);
     });
 
     trace({ message: 'Done' });
@@ -386,7 +417,11 @@ export abstract class PersistenceAdapter<
     const trace = (args: Record<string, any>) =>
       this.trace({ cid, in: 'removeInstance', ...args });
 
-    await this.deleteInstance(instanceId);
+    // Deregister this instance so it stops counting as alive. Marking it dying
+    // (rather than deleting the row) keeps it consistent with the death-note
+    // model and lets countAliveInstances exclude it for free. The row is reaped
+    // later by reapDeadInstances on a subsequent startup.
+    await this.markInstanceDying(instanceId);
 
     trace({ message: 'Done' });
   }
