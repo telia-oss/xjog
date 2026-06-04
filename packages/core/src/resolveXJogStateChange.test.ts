@@ -1,5 +1,9 @@
 import { createMachine, State } from 'xstate';
-import { resolveXJogUpdateStateChange } from './resolveXJogStateChange';
+import {
+  resolveXJogCreateStateChange,
+  resolveXJogDeleteStateChange,
+  resolveXJogUpdateStateChange,
+} from './resolveXJogStateChange';
 
 type Ctx = { count: number; blob: { nested: number[] } };
 
@@ -21,8 +25,8 @@ describe('resolveXJogUpdateStateChange', () => {
     const oldState = stateWith({ count: 0, blob: { nested: [1, 2, 3] } });
     const newState = stateWith({ count: 1, blob: { nested: [9] } });
     const change = resolveXJogUpdateStateChange(ref, null, oldState, newState);
-    (oldState.context.blob.nested as number[]).push(999);
-    (newState.context.blob.nested as number[]).push(999);
+    oldState.context.blob.nested.push(999);
+    newState.context.blob.nested.push(999);
     expect(change.type).toBe('update');
     expect((change.old?.context as Ctx).count).toBe(0);
     expect((change.old?.context as Ctx).blob.nested).toEqual([1, 2, 3]);
@@ -30,12 +34,38 @@ describe('resolveXJogUpdateStateChange', () => {
     expect((change.new?.context as Ctx).blob.nested).toEqual([9]);
   });
 
-  it('does not round-trip context through JSON.stringify', () => {
-    const spy = jest.spyOn(JSON, 'stringify');
-    const oldState = stateWith({ count: 0, blob: { nested: [1] } });
-    const newState = stateWith({ count: 1, blob: { nested: [2] } });
-    resolveXJogUpdateStateChange(ref, null, oldState, newState);
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
+  it('deep-clones via structuredClone, not a JSON round-trip', () => {
+    const structuredCloneSpy = jest.spyOn(globalThis, 'structuredClone');
+    const jsonSpy = jest.spyOn(JSON, 'stringify');
+    try {
+      const oldState = stateWith({ count: 0, blob: { nested: [1] } });
+      const newState = stateWith({ count: 1, blob: { nested: [2] } });
+      jsonSpy.mockClear(); // ignore any JSON.stringify from State construction above
+      resolveXJogUpdateStateChange(ref, null, oldState, newState);
+      // New path used: at least the new state's value+context are structuredCloned.
+      expect(structuredCloneSpy).toHaveBeenCalled();
+      // And the resolver itself no longer round-trips through JSON.
+      expect(jsonSpy).not.toHaveBeenCalled();
+    } finally {
+      structuredCloneSpy.mockRestore();
+      jsonSpy.mockRestore();
+    }
+  });
+
+  it('resolveXJogCreateStateChange returns an independent context copy', () => {
+    const state = stateWith({ count: 5, blob: { nested: [1, 2] } });
+    const change = resolveXJogCreateStateChange(ref, null, state);
+    expect(change.type).toBe('create');
+    expect(change.new?.context).not.toBe(state.context);
+    expect((change.new?.context as Ctx).blob).not.toBe(state.context.blob);
+    expect((change.new?.context as Ctx).blob.nested).toEqual([1, 2]);
+  });
+
+  it('resolveXJogDeleteStateChange returns an independent context copy', () => {
+    const state = stateWith({ count: 7, blob: { nested: [3] } });
+    const change = resolveXJogDeleteStateChange(ref, null, state);
+    expect(change.type).toBe('delete');
+    expect(change.old?.context).not.toBe(state.context);
+    expect((change.old?.context as Ctx).blob.nested).toEqual([3]);
   });
 });
