@@ -173,8 +173,15 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     id: string,
     connection: Pool | PoolClient = this.pool,
   ): Promise<void> {
+    // Refresh "timestamp" so it marks when the row entered the dying state.
+    // reapDeadInstances ages rows out relative to this, so a long-lived
+    // instance is not reaped immediately after a graceful shutdown.
     await connection.query(
-      bind('UPDATE "instances" SET "dying"=TRUE WHERE "instanceId"=:id', { id }),
+      bind(
+        'UPDATE "instances" SET "dying"=TRUE, "timestamp"=now() ' +
+          'WHERE "instanceId"=:id',
+        { id },
+      ),
     );
   }
 
@@ -195,7 +202,13 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   protected async markAllInstancesDying(
     connection: Pool | PoolClient = this.pool,
   ): Promise<void> {
-    await connection.query('UPDATE "instances" SET "dying"=TRUE');
+    // Only flip rows that are currently alive, stamping when they became
+    // dying. Rows already dying keep their original timestamp so they can age
+    // out via reapDeadInstances instead of being perpetually refreshed.
+    await connection.query(
+      'UPDATE "instances" SET "dying"=TRUE, "timestamp"=now() ' +
+        'WHERE "dying"=FALSE',
+    );
   }
 
   protected async markAllChartsPaused(

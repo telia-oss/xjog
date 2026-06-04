@@ -9,16 +9,16 @@ import { XJog } from './XJog';
  * failure instead of hanging the whole runner until the jest timeout.
  */
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
-  let timer: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    promise.finally(() => clearTimeout(timer)),
-    new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new Error(`Timed out waiting for: ${label}`)),
-        ms,
-      );
-    }),
-  ]);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Timed out waiting for: ${label}`)),
+      ms,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 const machine = createMachine({

@@ -15,9 +15,11 @@ import {
 import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 
 /**
- * How long an instance row may stay marked `dying` before it is reaped on the
- * next startup. Long enough that a dying instance still shutting down is never
- * removed out from under itself, short enough to bound `instances` growth.
+ * How long an instance row may stay marked `dying` (measured from when it
+ * entered the dying state, which `markInstanceDying`/`markAllInstancesDying`
+ * stamp onto `timestamp`) before it is reaped on the next startup. Long enough
+ * that an instance just overthrown still sees its own death note and shuts
+ * down before its row disappears, short enough to bound `instances` growth.
  */
 export const DEAD_INSTANCE_RETENTION_MS = 60 * 60 * 1000;
 

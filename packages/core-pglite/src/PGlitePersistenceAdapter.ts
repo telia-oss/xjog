@@ -169,8 +169,12 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     id: string,
     connection: PGlite = this.pool,
   ): Promise<void> {
+    // Refresh "timestamp" so it marks when the row entered the dying state.
+    // reapDeadInstances ages rows out relative to this, so a long-lived
+    // instance is not reaped immediately after a graceful shutdown.
     await connection.query(
-      'UPDATE "instances" SET "dying"=TRUE WHERE "instanceId"=$1',
+      'UPDATE "instances" SET "dying"=TRUE, "timestamp"=now() ' +
+        'WHERE "instanceId"=$1',
       [id],
     );
   }
@@ -190,7 +194,13 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   protected async markAllInstancesDying(
     connection: PGlite = this.pool,
   ): Promise<void> {
-    await connection.query('UPDATE "instances" SET "dying"=TRUE');
+    // Only flip rows that are currently alive, stamping when they became
+    // dying. Rows already dying keep their original timestamp so they can age
+    // out via reapDeadInstances instead of being perpetually refreshed.
+    await connection.query(
+      'UPDATE "instances" SET "dying"=TRUE, "timestamp"=now() ' +
+        'WHERE "dying"=FALSE',
+    );
   }
 
   protected async markAllChartsPaused(

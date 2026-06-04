@@ -230,4 +230,36 @@ describe('PGlitePersistenceAdapter: instance deregistration on graceful shutdown
     // Only the freshly inserted instance is alive.
     expect(await adapter.countAliveInstances()).toBe(1);
   });
+
+  it('does not reap a just-overthrown long-lived instance before it sees its death note', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    await adapter.withTransaction(async (client) => {
+      await client.exec('DELETE FROM "instances"');
+      // A live instance that has been running far longer than the retention
+      // window, so its insert timestamp is older than the reap threshold.
+      await client.exec(
+        `INSERT INTO "instances" ("instanceId", "dying", "timestamp")
+         VALUES ('long-lived', FALSE, now() - interval '2 hours')`,
+      );
+    });
+
+    // A successor boots and overthrows. overthrowOtherInstances marks the old
+    // instance dying and then reaps. Regression: marking dying must refresh the
+    // timestamp, otherwise the old (2h) row is reaped in the same transaction —
+    // and since onDeathNote treats a missing row as "not dying", the overthrown
+    // instance would never trigger its own shutdown.
+    await adapter.overthrowOtherInstances('successor', 'cid');
+
+    const rows = await adapter.withTransaction(async (client) => {
+      return client.query<{ instanceId: string; dying: boolean }>(
+        'SELECT "instanceId", "dying" FROM "instances"',
+      );
+    });
+    const longLived = rows.rows.find((r) => r.instanceId === 'long-lived');
+
+    // Its row must survive (so its death-note poll can fire) and be marked dying.
+    expect(longLived).toBeDefined();
+    expect(longLived?.dying).toBe(true);
+  });
 });
