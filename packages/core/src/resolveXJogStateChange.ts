@@ -17,6 +17,24 @@ import {
   XJogStateChangeAction,
 } from '@samihult/xjog-util';
 
+/**
+ * Minimal slice of an xstate {@link State} that {@link mapState} reads. Callers
+ * that snapshot only `value`/`context`/`actions` (e.g. XJogChart's pre-transition
+ * state) can pass this instead of a full `State`, so no `as State` cast is needed.
+ */
+export type XJogStateSnapshot<
+  TContext = any,
+  TStateSchema extends StateSchema = any,
+  TEvent extends EventObject = EventObject,
+  TTypeState extends Typestate<TContext> = {
+    value: any;
+    context: TContext;
+  },
+> = Pick<
+  State<TContext, TEvent, TStateSchema, TTypeState>,
+  'value' | 'context' | 'actions'
+>;
+
 function mapState<
   TContext = any,
   TStateSchema extends StateSchema = any,
@@ -27,11 +45,14 @@ function mapState<
   },
   TEmitted = any,
 >(
-  state: State<TContext, TEvent, TStateSchema, TTypeState>,
+  state: XJogStateSnapshot<TContext, TStateSchema, TEvent, TTypeState>,
+  // clone=false lets callers skip re-cloning a value they already snapshotted
+  // (e.g. XJogChart's pre-transition state). Default clones for safety.
+  clone = true,
 ): XJogStateChangeState {
   return {
-    value: JSON.parse(JSON.stringify(state.value)),
-    context: JSON.parse(JSON.stringify(state.context)),
+    value: clone ? structuredClone(state.value) : state.value,
+    context: clone ? structuredClone(state.context) : state.context,
     actions: mapActions(state.actions),
   };
 }
@@ -72,7 +93,7 @@ export function resolveXJogUpdateStateChange<
 >(
   ref: ChartReference,
   parentRef: ChartReference | null,
-  previousState: State<TContext, TEvent, TStateSchema, TTypeState>,
+  previousState: XJogStateSnapshot<TContext, TStateSchema, TEvent, TTypeState>,
   nextState: State<TContext, TEvent, TStateSchema, TTypeState>,
 ): XJogStateChange {
   return {
@@ -80,7 +101,7 @@ export function resolveXJogUpdateStateChange<
     ref,
     parentRef,
     event: toEventObject(nextState.event),
-    old: mapState(previousState),
+    old: mapState(previousState, false),
     new: mapState(nextState),
   };
 }

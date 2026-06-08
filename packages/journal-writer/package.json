@@ -5,7 +5,7 @@
   "engines": {
     "npm": ">=8.19.4",
     "node": ">=24.x",
-    "pnpm": ">=10.33.0"
+    "pnpm": ">=10.34.1"
   },
   "keywords": [
     "statechart",
