@@ -56,6 +56,7 @@ import {
   resolveXJogCreateStateChange,
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
+  XJogStateSnapshot,
 } from './resolveXJogStateChange';
 
 import type { XJog } from './XJog';
@@ -531,9 +532,11 @@ export class XJogChart<
       // allocates a new State with a new actions array, so the pre-transition
       // array is never mutated after this snapshot. mapState (the only consumer
       // of this snapshot) reads only value/context/actions.
-      const stateBeforeTransition: Pick<
-        State<TContext, TEvent, TStateSchema, TTypeState>,
-        'value' | 'context' | 'actions'
+      const stateBeforeTransition: XJogStateSnapshot<
+        TContext,
+        TStateSchema,
+        TEvent,
+        TTypeState
       > = {
         value: structuredClone(this.state.value),
         context: structuredClone(this.state.context),
@@ -580,12 +583,7 @@ export class XJogChart<
       const change = resolveXJogUpdateStateChange(
         this.ref,
         this.parentRef,
-        stateBeforeTransition as State<
-          TContext,
-          TEvent,
-          TStateSchema,
-          TTypeState
-        >,
+        stateBeforeTransition,
         this.state,
       );
 
@@ -762,9 +760,11 @@ export class XJogChart<
       // allocates a new State with a new actions array, so the pre-transition
       // array is never mutated after this snapshot. mapState (the only consumer
       // of this snapshot) reads only value/context/actions.
-      const stateBeforeTransition: Pick<
-        State<TContext, TEvent, TStateSchema, TTypeState>,
-        'value' | 'context' | 'actions'
+      const stateBeforeTransition: XJogStateSnapshot<
+        TContext,
+        TStateSchema,
+        TEvent,
+        TTypeState
       > = {
         value: structuredClone(this.state.value),
         context: structuredClone(this.state.context),
@@ -796,12 +796,7 @@ export class XJogChart<
         const change = resolveXJogUpdateStateChange(
           this.ref,
           this.parentRef,
-          stateBeforeTransition as State<
-            TContext,
-            TEvent,
-            TStateSchema,
-            TTypeState
-          >,
+          stateBeforeTransition,
           this.state,
         );
 
