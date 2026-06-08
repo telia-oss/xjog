@@ -1,6 +1,6 @@
 {
   "name": "@samihult/xjog-core-persistence",
-  "version": "0.0.55",
+  "version": "0.0.56",
   "description": "XJog chart abstract persistence",
   "engines": {
     "npm": ">=8.19.4",
