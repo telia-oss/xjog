@@ -295,27 +295,36 @@ export class XJogDeferredEventManager {
     const timer = setTimeout(async () => {
       trace({ message: 'Sending deferred event after the wait time', delay });
 
-      if (persistedDeferredEvent.eventTo) {
-        await this.xJog.sendTo(
-          persistedDeferredEvent.eventTo,
-          persistedDeferredEvent.eventId,
-          persistedDeferredEvent.ref,
-          persistedDeferredEvent.event,
-          undefined,
-          cid,
-        );
-      } else {
-        const state = await this.xJog.sendEvent(
-          persistedDeferredEvent.ref,
-          persistedDeferredEvent.event,
-          undefined,
-          undefined,
-          cid,
-        );
+      try {
+        if (persistedDeferredEvent.eventTo) {
+          await this.xJog.sendTo(
+            persistedDeferredEvent.eventTo,
+            persistedDeferredEvent.eventId,
+            persistedDeferredEvent.ref,
+            persistedDeferredEvent.event,
+            undefined,
+            cid,
+          );
+        } else {
+          const state = await this.xJog.sendEvent(
+            persistedDeferredEvent.ref,
+            persistedDeferredEvent.event,
+            undefined,
+            undefined,
+            cid,
+          );
 
-        if (!state) {
-          trace({ level: 'warning', message: 'Failed to send event' });
+          if (!state) {
+            trace({ level: 'warning', message: 'Failed to send event' });
+          }
         }
+      } catch (error) {
+        // A rejected send (e.g. a chart mutex acquire timeout) must not become
+        // an unhandled rejection. Skip the cleanup: the persisted event stays
+        // in place, so the next instance retries it on boot.
+        trace({ level: 'error', message: 'Failed to send event', error });
+        this.deferredEventTimers.delete(persistedDeferredEvent.id);
+        return;
       }
 
       trace({ message: 'Cleaning up after sending' });
