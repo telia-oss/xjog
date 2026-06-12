@@ -61,9 +61,7 @@ describe('XJogChart mutex acquire timeout', () => {
     // the WHOLE engine (xJog.dying = true), after which every send on every
     // chart was silently deferred and returned null while the process kept
     // running. The timeout must fail only the blocked operation.
-    await expect(chart.send('PING')).rejects.toThrow(
-      /Failed to acquire mutex/,
-    );
+    await expect(chart.send('PING')).rejects.toThrow(/Failed to acquire mutex/);
     expect(xJog.dying).toBe(false);
 
     releaseHook();
