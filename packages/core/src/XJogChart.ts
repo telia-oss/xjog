@@ -492,29 +492,21 @@ export class XJogChart<
         trace({ message: 'Mutex released' });
       };
     } catch (error) {
-      trace({
-        message:
-          'Failed to acquire mutex lease. ' +
-          'This indicates a problem with the chart, an eternal loop for example. ' +
-          'Shutting down.',
+      // A timed-out acquire means this one chart is wedged — an eternal loop,
+      // or a stuck operation holding the lock. Fail only this operation. This
+      // used to shut down the whole engine (at trace level), which turned a
+      // per-chart problem into an instance-wide one: a dying engine defers
+      // every subsequent send and returns null while the process stays up.
+      this.error(logPayload, {
+        message: 'Failed to acquire chart mutex within timeout',
+        chartMutexTimeout: this.options.chartMutexTimeout,
+        error,
       });
 
-      try {
-        await this.xJog.shutdown(cid);
-
-        return async () => {
-          // No mutex, no release in nested calls
-        };
-      } catch (shutdownError) {
-        const { message } = shutdownError as Error;
-
-        throw new Error(
-          `Failed to shut down after mutex failure, details:\n` +
-            JSON.stringify(logPayload, null, 2) +
-            '\nError:\n' +
-            message,
-        );
-      }
+      throw new Error(
+        `Failed to acquire mutex for chart ${this.href} ` +
+          `within ${this.options.chartMutexTimeout} ms`,
+      );
     }
   }
 
