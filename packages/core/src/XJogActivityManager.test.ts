@@ -34,7 +34,7 @@ function mockActivity(): [ActivityRef, () => void] {
     owner: { machineId: 'machine-id', chartId: 'chart-id' },
     toJSON: jest.fn(() => ({ id: 'activity-id' })),
     send: jest.fn(),
-    subscribe: jest.fn(() => unsubscribe),
+    subscribe: jest.fn(() => ({ unsubscribe })),
     stop: jest.fn(),
   };
 
@@ -77,6 +77,30 @@ describe('XJogActivityManager', () => {
     expect(activityManager.ongoingActivities.has(activity.id)).toBe(false);
   });
 
+  // Regression: `unregisterActivity` used to clean up `ongoingActivities` and
+  // `autoForwards` but never the `ongoingActivitySubscriptions` map, and never
+  // called `subscription.unsubscribe()`. Every activity ever registered left a
+  // live subscription (whose closures retain the whole activity) behind for the
+  // process lifetime — a slow heap leak proportional to checkout throughput.
+  it('Unsubscribes and drops the subscription entry when an activity is stopped', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [, activityManager] = mockXJogWithActivityManager(persistence);
+
+    const [activity, unsubscribe] = mockActivity();
+
+    await activityManager.registerActivity(activity);
+
+    // @ts-ignore Private access
+    const subscriptions = activityManager.ongoingActivitySubscriptions;
+    expect(subscriptions.size).toBe(1);
+
+    await activityManager.stopAndUnregisteredActivity(activity);
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    // No leaked map entries: the machine map is collapsed once empty.
+    expect(subscriptions.size).toBe(0);
+  });
+
   it('Can relay events to activities', async () => {
     const persistence = await PGlitePersistenceAdapter.connect();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
@@ -110,7 +134,7 @@ describe('XJogActivityManager', () => {
       send: jest.fn(),
       subscribe: jest.fn((subscriber: any) => {
         captured = subscriber;
-        return jest.fn();
+        return { unsubscribe: jest.fn() };
       }),
       stop: jest.fn(),
     } as unknown as ActivityRef;

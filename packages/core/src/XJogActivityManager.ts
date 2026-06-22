@@ -459,6 +459,38 @@ export class XJogActivityManager {
       trace({ message: 'Deleted the machine activity map' });
     }
 
+    trace({ message: 'Tearing down the activity subscription' });
+
+    this.ongoingActivitySubscriptions
+      .get(activity.owner.machineId)
+      ?.get(activity.owner.chartId)
+      ?.get(activity.id)
+      ?.unsubscribe();
+
+    this.ongoingActivitySubscriptions
+      .get(activity.owner.machineId)
+      ?.get(activity.owner.chartId)
+      ?.delete(activity.id);
+
+    if (
+      this.ongoingActivitySubscriptions
+        .get(activity.owner.machineId)
+        ?.get(activity.owner.chartId)?.size === 0
+    ) {
+      this.ongoingActivitySubscriptions
+        .get(activity.owner.machineId)
+        ?.delete(activity.owner.chartId);
+      trace({ message: 'Deleted the chart subscription set' });
+    }
+
+    if (
+      this.ongoingActivitySubscriptions.get(activity.owner.machineId)?.size ===
+      0
+    ) {
+      this.ongoingActivitySubscriptions.delete(activity.owner.machineId);
+      trace({ message: 'Deleted the machine subscription map' });
+    }
+
     if (activity.owner) {
       trace({ message: 'Unregistering auto-forward' });
 
@@ -572,6 +604,8 @@ export class XJogActivityManager {
 
       trace({ message: 'Clearing all the activities' });
       this.ongoingActivities.clear();
+      this.ongoingActivitySubscriptions.clear();
+      this.autoForwards.clear();
     } finally {
       trace('Releasing mutex');
       releaseMutex();
