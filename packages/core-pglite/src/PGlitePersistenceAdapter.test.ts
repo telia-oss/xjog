@@ -275,7 +275,11 @@ describe('PGlitePersistenceAdapter: live handoff primitives', () => {
         ownerId: string | null;
         paused?: boolean;
       }>;
-      activities?: Array<{ machineId?: string; chartId: string; activityId: string }>;
+      activities?: Array<{
+        machineId?: string;
+        chartId: string;
+        activityId: string;
+      }>;
       deferredLocks?: Array<{ chartId: string; lock: string | null }>;
     },
   ): Promise<void> {
@@ -311,7 +315,11 @@ describe('PGlitePersistenceAdapter: live handoff primitives', () => {
         await client.query(
           `INSERT INTO "ongoingActivities" ("machineId", "chartId", "activityId")
            VALUES ($1, $2, $3)`,
-          [activity.machineId ?? 'machine', activity.chartId, activity.activityId],
+          [
+            activity.machineId ?? 'machine',
+            activity.chartId,
+            activity.activityId,
+          ],
         );
       }
 
@@ -328,9 +336,15 @@ describe('PGlitePersistenceAdapter: live handoff primitives', () => {
 
   async function chartRows(
     adapter: PGlitePersistenceAdapter,
-  ): Promise<Array<{ chartId: string; ownerId: string | null; paused: boolean }>> {
+  ): Promise<
+    Array<{ chartId: string; ownerId: string | null; paused: boolean }>
+  > {
     const result = await adapter.withTransaction(async (client) =>
-      client.query<{ chartId: string; ownerId: string | null; paused: boolean }>(
+      client.query<{
+        chartId: string;
+        ownerId: string | null;
+        paused: boolean;
+      }>(
         'SELECT "chartId", "ownerId", "paused" FROM "charts" ORDER BY "chartId"',
       ),
     );
@@ -422,10 +436,7 @@ describe('PGlitePersistenceAdapter: live handoff primitives', () => {
   it('pauseOrphanedCharts pauses charts not owned by a live instance', async () => {
     const adapter = await PGlitePersistenceAdapter.connect();
     await seed(adapter, {
-      instances: [
-        { id: 'live' },
-        { id: 'dying', dying: true },
-      ],
+      instances: [{ id: 'live' }, { id: 'dying', dying: true }],
       charts: [
         { chartId: 'live-owned', ownerId: 'live' },
         { chartId: 'dying-owned', ownerId: 'dying' },
@@ -450,10 +461,7 @@ describe('PGlitePersistenceAdapter: live handoff primitives', () => {
   it('releaseOrphanedDeferredEvents unlocks events held by non-live instances', async () => {
     const adapter = await PGlitePersistenceAdapter.connect();
     await seed(adapter, {
-      instances: [
-        { id: 'live' },
-        { id: 'dying', dying: true },
-      ],
+      instances: [{ id: 'live' }, { id: 'dying', dying: true }],
       deferredLocks: [
         { chartId: 'a', lock: 'live' },
         { chartId: 'b', lock: 'dying' },
