@@ -40,6 +40,18 @@ export class ChartOwnershipLostError extends Error {
     );
     this.name = 'ChartOwnershipLostError';
   }
+
+  /**
+   * Name-based type guard. Package managers can resolve two copies of this
+   * package into one dependency tree, and `instanceof` fails across copies —
+   * match on the error name so consumers can rely on the check.
+   */
+  public static is(error: unknown): error is ChartOwnershipLostError {
+    return (
+      error instanceof ChartOwnershipLostError ||
+      (error instanceof Error && error.name === 'ChartOwnershipLostError')
+    );
+  }
 }
 
 /**
@@ -415,7 +427,7 @@ export abstract class PersistenceAdapter<
    */
   public abstract releaseDeferredEvent(
     ref: ChartReference,
-    eventId: number,
+    eventId: string | number,
     connection?: ConnectionType,
   ): Promise<void>;
 

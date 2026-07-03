@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { PersistedDeferredEvent } from '@samihult/xjog-core-persistence';
+import {
+  ChartOwnershipLostError,
+  PersistedDeferredEvent,
+} from '@samihult/xjog-core-persistence';
 
 import {
   getCorrelationIdentifier,
@@ -319,6 +322,42 @@ export class XJogDeferredEventManager {
           }
         }
       } catch (error) {
+        if (ChartOwnershipLostError.is(error)) {
+          // The chart was adopted by another live instance while this event
+          // was in flight. Hand the event back (lock=NULL) so the owner's
+          // deferred loop can fire it — the reconciler only releases locks
+          // of DEAD instances, so keeping our lock would strand the timer
+          // forever. Not treated as delivered: the persisted row stays.
+          trace({
+            level: 'warning',
+            message: 'Chart ownership lost, releasing the event to its owner',
+            error,
+          });
+
+          try {
+            await this.xJog.persistence.releaseDeferredEvent(
+              persistedDeferredEvent.ref,
+              persistedDeferredEvent.eventId,
+            );
+          } catch (releaseError) {
+            trace({
+              level: 'error',
+              message: 'Failed to release the deferred event',
+              error: releaseError,
+            });
+          }
+
+          const eventIndex = this.deferredEvents.findIndex(
+            (candidate) => candidate.id === persistedDeferredEvent.id,
+          );
+          if (eventIndex >= 0) {
+            this.deferredEvents.splice(eventIndex, 1);
+          }
+
+          this.deferredEventTimers.delete(persistedDeferredEvent.id);
+          return;
+        }
+
         // A rejected send (e.g. a chart mutex acquire timeout) must not become
         // an unhandled rejection. Skip the cleanup: the persisted event stays
         // in place, so the next instance retries it on boot.

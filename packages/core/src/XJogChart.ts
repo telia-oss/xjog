@@ -832,19 +832,24 @@ export class XJogChart<
           },
         );
       } catch (err) {
-        if (err instanceof ChartOwnershipLostError) {
+        if (ChartOwnershipLostError.is(err)) {
           // A sibling adopted this chart (deploy handoff or stale-instance
           // takeover). The in-memory copy is stale; evict it so the next
           // getChart reloads the owner's state from the database. Eviction
           // waits for this send's mutex to release, so it must not be
           // awaited here.
+          //
+          // Rethrown rather than swallowed to null: ownership loss is an
+          // expected, self-correcting handoff condition, and callers need to
+          // tell it apart from a genuine send failure (retry / redirect
+          // instead of counting it against service health).
           error('Chart ownership lost, dropping the local copy', { err });
           this.xJogMachine
             .evictCacheEntry(this.id)
             .catch((evictError) =>
               error('Failed to evict chart from cache', { err: evictError }),
             );
-          return null;
+          throw err;
         }
 
         error('Failed to send event, returning null', { err });
