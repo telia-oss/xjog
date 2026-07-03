@@ -9,7 +9,6 @@ on:
 
 env:
   NODE_VERSION: 24
-  PNPM_VERSION: 10.34.1
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
@@ -33,9 +32,8 @@ jobs:
           fetch-depth: 1
 
       - name: Setup pnpm
+        # Version comes from the packageManager field in package.json.
         uses: pnpm/action-setup@v5
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
         uses: actions/setup-node@v5
