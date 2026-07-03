@@ -43,6 +43,8 @@ export class XJogStartupManager {
   private startupGracePeriodTimer: NodeJS.Timeout | null = null;
   /** @private Timer for adoption loop */
   private adoptionLoopTimer: NodeJS.Timeout | null = null;
+  /** @private Set by {@link #stop}; prevents an in-flight pass from rescheduling */
+  private stopping = false;
 
   public constructor(private readonly xJog: XJog) {
     this.options = xJog.options.startup;
@@ -65,8 +67,13 @@ export class XJogStartupManager {
   }
 
   /**
-   * Start charts and activities. Start adoption process of
-   * old instances' charts. Call this after registering all the machines.
+   * Start charts and activities. Start the adoption reconciler that picks up
+   * charts paused by departing siblings or stranded by crashed ones. Call
+   * this after registering all the machines.
+   *
+   * Live siblings are left alone: this instance registers itself and adopts
+   * only charts that are up for adoption, so a booting instance never
+   * disturbs one that is still serving.
    *
    * @param cid Optional correlation id for debugging purposes.
    */
@@ -74,13 +81,13 @@ export class XJogStartupManager {
     const trace = (args: Record<string, any>) =>
       this.xJog.trace({ cid, in: 'startupManager.start', ...args });
 
-    trace({ message: 'Overthrowing other instances' });
-    await this.xJog.persistence.overthrowOtherInstances(this.xJog.id, cid);
+    trace({ message: 'Registering this instance' });
+    await this.xJog.persistence.registerInstance(this.xJog.id, cid);
 
     trace({ message: 'Entering the adoption grace period' });
     this.startAdoptionGracePeriod();
 
-    trace({ message: 'Starting adoption process' });
+    trace({ message: 'Starting adoption reconciler' });
     await this.adoptCharts();
 
     trace({ message: 'Startup completed' });
@@ -91,10 +98,12 @@ export class XJogStartupManager {
     const trace = (args: Record<string, any>) =>
       this.xJog.trace({ cid, in: 'startupManager.stop', ...args });
 
+    this.stopping = true;
+
     trace({ message: 'Exiting the adoption grace period' });
     this.exitAdoptionGracePeriod();
 
-    trace({ message: 'Stopping adoption process' });
+    trace({ message: 'Stopping adoption reconciler' });
     this.stopAdoptionLoop();
 
     trace({ message: 'Signal readiness' });
@@ -109,10 +118,20 @@ export class XJogStartupManager {
   }
 
   /**
-   * Adopt charts until there are no charts left to adopt. This is the gentle
-   * option, and only paused charts that have zero activity counter will be
-   * adopted. If this fails, {@link #forciblyOverThrowStubbornInstances} will
-   * be called after the grace period.
+   * One reconciler pass, rescheduled forever until {@link #stop}:
+   *
+   * 1. Heartbeat this instance's liveness.
+   * 2. Declare siblings with a stale heartbeat dead (marks them dying; their
+   *    own death-note poll makes them shut down).
+   * 3. Pause charts and release deferred-event locks whose owner is not a
+   *    live instance, putting them up for adoption.
+   * 4. Gently adopt paused charts with no ongoing activities. Stubborn
+   *    paused charts are force-adopted by
+   *    {@link #forciblyOverThrowStubbornInstances} after the grace period.
+   *
+   * Running continuously (not only during startup) is what makes a rolling
+   * deploy work: the successor is already serving when the predecessor
+   * drains, and picks up its paused charts within one cycle.
    *
    * @private
    */
@@ -124,50 +143,66 @@ export class XJogStartupManager {
 
     this.adoptionLoopTimer = null;
 
-    trace({ message: 'Adopting charts' });
-    const adoptedChartIdentifiers =
-      await this.xJog.persistence.gentlyAdoptCharts(this.xJog.id, cid);
+    try {
+      await this.xJog.persistence.heartbeatInstance(this.xJog.id);
+      await this.xJog.persistence.markStaleInstancesDying(
+        this.xJog.id,
+        this.options.instanceStaleness,
+        cid,
+      );
+      await this.xJog.persistence.releaseOrphanedDeferredEvents(cid);
+      await this.xJog.persistence.pauseOrphanedCharts(cid);
 
-    const pausedChartCount =
-      await this.xJog.persistence.getPausedChartCount(cid);
+      trace({ message: 'Adopting charts' });
+      const adoptedChartIdentifiers =
+        await this.xJog.persistence.gentlyAdoptCharts(this.xJog.id, cid);
 
-    if (adoptedChartIdentifiers.length) {
-      trace({
-        message: 'Starting adopted charts',
-        count: adoptedChartIdentifiers.length,
-        left: pausedChartCount,
-      });
+      const pausedChartCount =
+        await this.xJog.persistence.getPausedChartCount(cid);
 
-      await this.startAdoptedCharts(adoptedChartIdentifiers);
-    } else {
-      trace({
-        message: 'Could not adopt any charts',
-        count: adoptedChartIdentifiers.length,
-        left: pausedChartCount,
+      if (adoptedChartIdentifiers.length) {
+        trace({
+          message: 'Starting adopted charts',
+          count: adoptedChartIdentifiers.length,
+          left: pausedChartCount,
+        });
+
+        await this.startAdoptedCharts(adoptedChartIdentifiers);
+      }
+
+      if (pausedChartCount > 0) {
+        trace({ message: 'More charts to adopt', pausedChartCount });
+
+        // Bug fix: only start the grace period if one isn't already running.
+        // Previously this was called on every adoption cycle (~every 2s),
+        // which cleared and reset the 30s timer each time, preventing
+        // forciblyOverThrowStubbornInstances() from ever firing.
+        if (!this.startupGracePeriodTimer) {
+          this.startAdoptionGracePeriod();
+        }
+      } else {
+        this.exitAdoptionGracePeriod();
+        this.signalReadiness();
+      }
+    } catch (error) {
+      // The reconciler must survive transient database errors; the next
+      // cycle retries the whole pass.
+      this.xJog.error({
+        cid,
+        in: 'startupManager.adoptCharts',
+        message: 'Reconciler pass failed',
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : error,
       });
     }
 
-    if (pausedChartCount > 0) {
-      trace({ message: 'More charts to adopt', pausedChartCount });
-
-      // Bug fix: only start the grace period if one isn't already running.
-      // Previously this was called on every adoption cycle (~every 2s),
-      // which cleared and reset the 30s timer each time, preventing
-      // forciblyOverThrowStubbornInstances() from ever firing.
-      if (!this.startupGracePeriodTimer) {
-        this.startAdoptionGracePeriod();
-      }
-
+    if (!this.stopping) {
       this.adoptionLoopTimer = setTimeout(
         this.adoptCharts.bind(this),
         this.options.adoptionFrequency,
       );
-    } else {
-      trace({ message: 'No more charts to adopt' });
-      this.exitAdoptionGracePeriod();
-
-      trace({ message: 'Signal readiness' });
-      this.signalReadiness();
     }
 
     trace({ message: 'Done' });
@@ -252,6 +287,12 @@ export class XJogStartupManager {
   }
 
   private signalReadiness(): void {
+    // Idempotent: the reconciler reaches the "nothing to adopt" branch on
+    // every quiet cycle, but readiness is only signalled once.
+    if (this.isReady) {
+      return;
+    }
+
     this.isReady = true;
     this.xJog.emit('ready');
 

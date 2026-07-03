@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  PersistedDeferredEvent,
-  PersistenceAdapter,
+import {
+  ChartOwnershipLostError,
+  type PersistedDeferredEvent,
+  type PersistenceAdapter,
 } from '@samihult/xjog-core-persistence';
 import {
   type ActivityRef,
@@ -794,7 +795,15 @@ export class XJogChart<
 
         await this.xJog.timeExecution('chart.send.update chart', async () => {
           trace({ message: 'Updating chart' });
-          await this.persistence.updateChart(this.ref, this.state, cid);
+          // Fenced write: applies only while this instance still owns the
+          // chart, so a sibling that adopted it cannot be overwritten.
+          await this.persistence.updateChart(
+            this.ref,
+            this.state,
+            cid,
+            undefined,
+            this.xJog.id,
+          );
         });
 
         for (const hook of this.xJog.updateHooks) {
@@ -823,6 +832,21 @@ export class XJogChart<
           },
         );
       } catch (err) {
+        if (err instanceof ChartOwnershipLostError) {
+          // A sibling adopted this chart (deploy handoff or stale-instance
+          // takeover). The in-memory copy is stale; evict it so the next
+          // getChart reloads the owner's state from the database. Eviction
+          // waits for this send's mutex to release, so it must not be
+          // awaited here.
+          error('Chart ownership lost, dropping the local copy', { err });
+          this.xJogMachine
+            .evictCacheEntry(this.id)
+            .catch((evictError) =>
+              error('Failed to evict chart from cache', { err: evictError }),
+            );
+          return null;
+        }
+
         error('Failed to send event, returning null', { err });
         return null;
       } finally {

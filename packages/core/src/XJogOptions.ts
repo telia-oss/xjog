@@ -23,6 +23,13 @@ export type XJogOptions = {
      * Defaults to false.
      */
     skipRunningActionsOnRehydrate?: boolean;
+    /**
+     * How long a sibling instance's heartbeat may lag before the reconciler
+     * declares it dead: it is marked dying and its charts are paused and
+     * adopted. Must comfortably exceed the longest expected event-loop stall
+     * of a healthy instance. Defaults to 60000 ms.
+     */
+    instanceStaleness?: number;
   };
   deferredEvents?: {
     /** Number of deferred events to process at a time */
@@ -56,6 +63,7 @@ export type ResolvedXJogOptions = {
     adoptionFrequency: number;
     gracePeriod: number;
     skipRunningActionsOnRehydrate: boolean;
+    instanceStaleness: number;
   };
   deferredEvents: {
     batchSize: number;
@@ -120,10 +128,18 @@ export function resolveXJogStartupOptions(
   const skipRunningActionsOnRehydrate =
     options?.skipRunningActionsOnRehydrate ?? false;
 
+  const instanceStaleness = pickIntegerOption(
+    options?.instanceStaleness,
+    60 * 1000,
+    2 * adoptionFrequency,
+    trace,
+  );
+
   return {
     adoptionFrequency,
     gracePeriod,
     skipRunningActionsOnRehydrate,
+    instanceStaleness,
   };
 }
 

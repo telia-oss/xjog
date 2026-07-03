@@ -203,6 +203,100 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     );
   }
 
+  protected async updateInstanceHeartbeat(
+    id: string,
+    connection: PGlite = this.pool,
+  ): Promise<void> {
+    // For alive rows "timestamp" doubles as the liveness heartbeat; for dying
+    // rows it is the time of death and must not be refreshed.
+    await connection.query(
+      'UPDATE "instances" SET "timestamp"=now() ' +
+        'WHERE "instanceId"=$1 AND "dying"=FALSE',
+      [id],
+    );
+  }
+
+  protected async markStaleInstancesAsDying(
+    id: string,
+    stalenessMs: number,
+    connection: PGlite = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'UPDATE "instances" SET "dying"=TRUE, "timestamp"=now() ' +
+        'WHERE "dying"=FALSE AND "instanceId" <> $1 ' +
+        'AND "timestamp" < now() - make_interval(secs => $2)',
+      [id, stalenessMs / 1000],
+    );
+    return result.affectedRows ?? 0;
+  }
+
+  protected async pauseChartsWithoutLiveOwner(
+    connection: PGlite = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'UPDATE "charts" SET "paused"=TRUE ' +
+        'WHERE "paused"=FALSE AND ("ownerId" IS NULL OR "ownerId" NOT IN (' +
+        '  SELECT "instanceId" FROM "instances" WHERE "dying"=FALSE' +
+        '))',
+    );
+    return result.affectedRows ?? 0;
+  }
+
+  protected async pauseChartsOwnedBy(
+    id: string,
+    connection: PGlite = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'UPDATE "charts" SET "paused"=TRUE ' +
+        'WHERE "paused"=FALSE AND "ownerId"=$1',
+      [id],
+    );
+    return result.affectedRows ?? 0;
+  }
+
+  protected async releaseDeferredEventsWithoutLiveOwner(
+    connection: PGlite = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'UPDATE "deferredEvents" SET "lock"=NULL ' +
+        'WHERE "lock" IS NOT NULL AND "lock" NOT IN (' +
+        '  SELECT "instanceId" FROM "instances" WHERE "dying"=FALSE' +
+        ')',
+    );
+    return result.affectedRows ?? 0;
+  }
+
+  protected async claimPausedChart(
+    instanceId: string,
+    ref: ChartReference,
+    requireIdle: boolean,
+    connection: PGlite = this.pool,
+  ): Promise<boolean> {
+    const result = await connection.query(
+      'UPDATE "charts" SET "ownerId"=$1, "paused"=FALSE ' +
+        'WHERE "machineId"=$2 AND "chartId"=$3 AND "paused"=TRUE ' +
+        (requireIdle
+          ? 'AND NOT EXISTS (' +
+            '  SELECT 1 FROM "ongoingActivities" ' +
+            '  WHERE "machineId"=$2 AND "chartId"=$3' +
+            ') '
+          : ''),
+      [instanceId, ref.machineId, ref.chartId],
+    );
+    return (result.affectedRows ?? 0) > 0;
+  }
+
+  protected async deleteOngoingActivitiesForChart(
+    ref: ChartReference,
+    connection: PGlite = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'DELETE FROM "ongoingActivities" WHERE "machineId"=$1 AND "chartId"=$2',
+      [ref.machineId, ref.chartId],
+    );
+    return result.affectedRows ?? 0;
+  }
+
   protected async markAllChartsPaused(
     connection: PGlite = this.pool,
   ): Promise<void> {
@@ -320,6 +414,12 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
         [instanceId],
       );
 
+      // Re-check after the await: cancel() may have run meanwhile, or a
+      // parallel in-flight poll may already have delivered the note.
+      if (cancelled) {
+        return;
+      }
+
       const dying = Number(result.rows[0].dying) > 0;
 
       if (dying) {
@@ -328,9 +428,7 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
           clearInterval(timer);
           timer = null;
         }
-        if (!cancelled) {
-          callback();
-        }
+        callback();
       }
     }, 500);
 
@@ -408,13 +506,21 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
   protected async updateChartState<TContext, TEvent extends EventObject>(
     ref: ChartReference,
     state: State<TContext, TEvent, StateSchema<TContext>, Typestate<TContext>>,
+    expectedOwnerId: string | null = null,
     connection: PGlite = this.pool,
-  ): Promise<void> {
-    await connection.query(
+  ): Promise<number> {
+    const result = await connection.query(
       'UPDATE "charts" SET "state" = $1 ' +
-        'WHERE "machineId" = $2 AND "chartId" = $3 ',
-      [Buffer.from(JSON.stringify(state)), ref.machineId, ref.chartId],
+        'WHERE "machineId" = $2 AND "chartId" = $3 ' +
+        (expectedOwnerId !== null ? 'AND "ownerId" = $4 ' : ''),
+      [
+        Buffer.from(JSON.stringify(state)),
+        ref.machineId,
+        ref.chartId,
+        ...(expectedOwnerId !== null ? [expectedOwnerId] : []),
+      ],
     );
+    return result.affectedRows ?? 0;
   }
 
   public async destroyChart(
@@ -837,7 +943,11 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
           }
         : null,
 
-      state: JSON.parse(row.state.toString()) as StateConfig<TContext, TEvent>,
+      // PGlite returns bytea as Uint8Array, whose toString() yields
+      // comma-joined byte values instead of text — decode explicitly.
+      state: JSON.parse(
+        Buffer.from(row.state).toString('utf-8'),
+      ) as StateConfig<TContext, TEvent>,
 
       paused: row.paused,
     };

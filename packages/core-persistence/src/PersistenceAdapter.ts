@@ -24,6 +24,25 @@ import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 export const DEAD_INSTANCE_RETENTION_MS = 60 * 60 * 1000;
 
 /**
+ * Thrown when a state write is fenced off because the chart is no longer
+ * owned by the writing instance — a sibling adopted it (stale-instance
+ * takeover, deploy handoff) or it was destroyed. The caller must drop its
+ * in-memory copy of the chart; the persisted state belongs to the new owner.
+ */
+export class ChartOwnershipLostError extends Error {
+  public constructor(
+    public readonly ref: ChartReference,
+    public readonly instanceId: string,
+  ) {
+    super(
+      `Chart ${ref.machineId}/${ref.chartId} is no longer owned by ` +
+        `instance ${instanceId}; refusing to overwrite its state`,
+    );
+    this.name = 'ChartOwnershipLostError';
+  }
+}
+
+/**
  * Abstract adapter class for XJog persistence.
  * @hideconstructor
  */
@@ -90,6 +109,93 @@ export abstract class PersistenceAdapter<
   ): Promise<void>;
 
   /**
+   * Refresh the instance row's `timestamp` so it counts as recently alive.
+   * Must not touch rows already marked dying.
+   *
+   * @abstract
+   */
+  protected abstract updateInstanceHeartbeat(
+    id: string,
+    connection?: ConnectionType,
+  ): Promise<void>;
+
+  /**
+   * Mark alive instances (other than the caller) whose heartbeat `timestamp`
+   * is older than `stalenessMs` as dying, stamping `timestamp` with the time
+   * of death like {@link markInstanceDying} does.
+   *
+   * @abstract
+   * @returns Number of instances marked dying
+   */
+  protected abstract markStaleInstancesAsDying(
+    id: string,
+    stalenessMs: number,
+    connection?: ConnectionType,
+  ): Promise<number>;
+
+  /**
+   * Pause every unpaused chart whose `ownerId` is not an alive instance
+   * (owner missing, reaped, or marked dying). Paused charts are up for
+   * adoption by the reconciler.
+   *
+   * @abstract
+   * @returns Number of charts paused
+   */
+  protected abstract pauseChartsWithoutLiveOwner(
+    connection?: ConnectionType,
+  ): Promise<number>;
+
+  /**
+   * Pause every unpaused chart owned by the given instance. Used on graceful
+   * shutdown to offer the instance's charts for adoption.
+   *
+   * @abstract
+   * @returns Number of charts paused
+   */
+  protected abstract pauseChartsOwnedBy(
+    id: string,
+    connection?: ConnectionType,
+  ): Promise<number>;
+
+  /**
+   * Release deferred-event locks held by instances that are not alive, so a
+   * surviving instance's deferred-event loop can pick the events up.
+   *
+   * @abstract
+   * @returns Number of locks released
+   */
+  protected abstract releaseDeferredEventsWithoutLiveOwner(
+    connection?: ConnectionType,
+  ): Promise<number>;
+
+  /**
+   * Atomically claim a paused chart for the given instance: set its owner and
+   * resume it, but only if it is still paused (and, when `requireIdle`, has
+   * no ongoing activities). Exactly one of several concurrent claimants wins.
+   *
+   * @abstract
+   * @returns True if this call claimed the chart
+   */
+  protected abstract claimPausedChart(
+    instanceId: string,
+    ref: ChartReference,
+    requireIdle: boolean,
+    connection?: ConnectionType,
+  ): Promise<boolean>;
+
+  /**
+   * Delete the ongoing-activity rows of a single chart. Used after forcibly
+   * adopting it, since the previous owner is gone and cannot stop them.
+   *
+   * @abstract
+   * @returns Number of deleted rows
+   */
+  protected abstract deleteOngoingActivitiesForChart(
+    ref: ChartReference,
+    connection?: ConnectionType,
+  ): Promise<number>;
+
+  /**
    * Function that notifies the callback when
    * this instance is marked as dying
    *
@@ -134,7 +240,11 @@ export abstract class PersistenceAdapter<
   ): Promise<PersistedChart<TContext, TEvent> | null>;
 
   /**
+   * Persist the chart's state. When `expectedOwnerId` is given, the write is
+   * fenced: it only applies while the chart is still owned by that instance.
+   *
    * @abstract
+   * @returns Number of updated rows (0 when the fence rejected the write)
    */
   protected abstract updateChartState<TContext, TEvent extends EventObject>(
     ref: ChartReference,
@@ -144,8 +254,9 @@ export abstract class PersistenceAdapter<
       StateSchema<TContext>,
       Typestate<TContext>
     >,
+    expectedOwnerId?: string | null,
     connection?: ConnectionType,
-  ): Promise<void>;
+  ): Promise<number>;
 
   /**
    * @abstract
@@ -413,6 +524,113 @@ export abstract class PersistenceAdapter<
     trace({ message: 'Done' });
   }
 
+  /**
+   * Register this instance as alive without disturbing live siblings. The
+   * non-violent counterpart of {@link overthrowOtherInstances}: no instance
+   * is marked dying and no chart is paused. Reaps long-dead rows in passing.
+   */
+  public async registerInstance(instanceId: string, cid: string): Promise<void> {
+    const trace = (args: Record<string, any>) =>
+      this.trace({ cid, in: 'registerInstance', ...args });
+
+    await this.withTransaction(async (connection) => {
+      trace({ message: 'Adding the instance to the list' });
+      await this.insertInstance(instanceId, connection);
+
+      trace({ message: 'Reaping long-dead instances' });
+      await this.reapDeadInstances(DEAD_INSTANCE_RETENTION_MS, connection);
+    });
+
+    trace({ message: 'Done' });
+  }
+
+  /**
+   * Refresh this instance's liveness heartbeat. Called periodically by the
+   * adoption reconciler; an instance whose heartbeat goes stale is eventually
+   * marked dying by a sibling via {@link markStaleInstancesDying}.
+   */
+  public async heartbeatInstance(instanceId: string): Promise<void> {
+    await this.updateInstanceHeartbeat(instanceId);
+  }
+
+  /**
+   * Mark alive siblings with a stale heartbeat as dying. Their charts become
+   * orphans and get paused by {@link pauseOrphanedCharts} on the same
+   * reconciler pass; their own death-note poll makes them shut down.
+   */
+  public async markStaleInstancesDying(
+    instanceId: string,
+    stalenessMs: number,
+    cid: string = getCorrelationIdentifier(),
+  ): Promise<number> {
+    const trace = (args: Record<string, any>) =>
+      this.trace({ cid, in: 'markStaleInstancesDying', ...args });
+
+    const markedCount = await this.markStaleInstancesAsDying(
+      instanceId,
+      stalenessMs,
+    );
+
+    if (markedCount > 0) {
+      trace({ message: 'Marked stale instances dying', markedCount });
+    }
+
+    return markedCount;
+  }
+
+  /**
+   * Pause charts whose owner is not alive so they can be adopted.
+   */
+  public async pauseOrphanedCharts(
+    cid: string = getCorrelationIdentifier(),
+  ): Promise<number> {
+    const trace = (args: Record<string, any>) =>
+      this.trace({ cid, in: 'pauseOrphanedCharts', ...args });
+
+    const pausedCount = await this.pauseChartsWithoutLiveOwner();
+
+    if (pausedCount > 0) {
+      trace({ message: 'Paused orphaned charts', pausedCount });
+    }
+
+    return pausedCount;
+  }
+
+  /**
+   * Pause this instance's own charts, offering them for adoption by a
+   * surviving sibling. Called on graceful shutdown.
+   */
+  public async pauseOwnCharts(
+    instanceId: string,
+    cid: string = getCorrelationIdentifier(),
+  ): Promise<number> {
+    const trace = (args: Record<string, any>) =>
+      this.trace({ cid, in: 'pauseOwnCharts', ...args });
+
+    const pausedCount = await this.pauseChartsOwnedBy(instanceId);
+
+    trace({ message: 'Paused own charts', pausedCount });
+    return pausedCount;
+  }
+
+  /**
+   * Release deferred-event locks held by non-alive instances.
+   */
+  public async releaseOrphanedDeferredEvents(
+    cid: string = getCorrelationIdentifier(),
+  ): Promise<number> {
+    const trace = (args: Record<string, any>) =>
+      this.trace({ cid, in: 'releaseOrphanedDeferredEvents', ...args });
+
+    const releasedCount = await this.releaseDeferredEventsWithoutLiveOwner();
+
+    if (releasedCount > 0) {
+      trace({ message: 'Released orphaned deferred events', releasedCount });
+    }
+
+    return releasedCount;
+  }
+
   public async removeInstance(instanceId: string, cid: string): Promise<void> {
     const trace = (args: Record<string, any>) =>
       this.trace({ cid, in: 'removeInstance', ...args });
@@ -451,9 +669,17 @@ export abstract class PersistenceAdapter<
 
     trace({ message: 'Gently adopt all idle charts' });
 
-    const adoptedChartIds =
+    // Claim each candidate atomically: with several live instances reconciling
+    // concurrently, exactly one claimant wins each chart.
+    const candidateChartIds =
       await this.getPausedChartWithNoOngoingActivitiesIds();
-    await this.changeOwnerAndResumeCharts(instanceId, adoptedChartIds);
+
+    const adoptedChartIds: ChartReference[] = [];
+    for (const ref of candidateChartIds) {
+      if (await this.claimPausedChart(instanceId, ref, true)) {
+        adoptedChartIds.push(ref);
+      }
+    }
 
     trace({ message: 'Done' });
     return adoptedChartIds;
@@ -472,14 +698,21 @@ export abstract class PersistenceAdapter<
 
     trace({ message: 'Forcibly adopt all foreign charts' });
 
-    return this.withTransaction(async (connection) => {
-      const adoptedChartIds = await this.getPausedChartIds(connection);
-      await this.deleteOngoingActivitiesForPausedCharts(connection);
-      await this.changeOwnerAndResumePausedCharts(instanceId, connection);
+    // Claim each paused chart atomically regardless of ongoing activities.
+    // The previous owner is gone, so its activity rows are stale — delete
+    // them per adopted chart (only for charts this instance actually won).
+    const candidateChartIds = await this.getPausedChartIds();
 
-      trace({ message: 'Done' });
-      return adoptedChartIds;
-    });
+    const adoptedChartIds: ChartReference[] = [];
+    for (const ref of candidateChartIds) {
+      if (await this.claimPausedChart(instanceId, ref, false)) {
+        await this.deleteOngoingActivitiesForChart(ref);
+        adoptedChartIds.push(ref);
+      }
+    }
+
+    trace({ message: 'Done' });
+    return adoptedChartIds;
   }
 
   /**
@@ -575,12 +808,22 @@ export abstract class PersistenceAdapter<
     state: State<TContext, TEvent, any, any>,
     cid = getCorrelationIdentifier(),
     connection?: ConnectionType,
+    expectedOwnerId?: string,
   ): Promise<void> {
     const trace = (args: Record<string, any>) =>
       this.trace({ cid, in: 'updateChart', ref, ...args });
 
     trace({ message: 'Storing the chart to the database' });
-    await this.updateChartState(ref, state, connection);
+    const updatedRowCount = await this.updateChartState(
+      ref,
+      state,
+      expectedOwnerId ?? null,
+      connection,
+    );
+
+    if (expectedOwnerId !== undefined && updatedRowCount === 0) {
+      throw new ChartOwnershipLostError(ref, expectedOwnerId);
+    }
 
     trace({ message: 'Done' });
   }

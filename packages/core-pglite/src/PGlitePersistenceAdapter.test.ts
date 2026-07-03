@@ -263,3 +263,360 @@ describe('PGlitePersistenceAdapter: instance deregistration on graceful shutdown
     expect(longLived?.dying).toBe(true);
   });
 });
+
+describe('PGlitePersistenceAdapter: live handoff primitives', () => {
+  async function seed(
+    adapter: PGlitePersistenceAdapter,
+    args: {
+      instances?: Array<{ id: string; dying?: boolean; ageSeconds?: number }>;
+      charts?: Array<{
+        machineId?: string;
+        chartId: string;
+        ownerId: string | null;
+        paused?: boolean;
+      }>;
+      activities?: Array<{ machineId?: string; chartId: string; activityId: string }>;
+      deferredLocks?: Array<{ chartId: string; lock: string | null }>;
+    },
+  ): Promise<void> {
+    await adapter.withTransaction(async (client) => {
+      await client.exec('DELETE FROM "deferredEvents"');
+      await client.exec('DELETE FROM "ongoingActivities"');
+      await client.exec('DELETE FROM "charts"');
+      await client.exec('DELETE FROM "instances"');
+
+      for (const instance of args.instances ?? []) {
+        await client.query(
+          `INSERT INTO "instances" ("instanceId", "dying", "timestamp")
+           VALUES ($1, $2, now() - make_interval(secs => $3))`,
+          [instance.id, instance.dying ?? false, instance.ageSeconds ?? 0],
+        );
+      }
+
+      for (const chart of args.charts ?? []) {
+        await client.query(
+          `INSERT INTO "charts"
+             ("machineId", "chartId", "ownerId", "paused", "state")
+           VALUES ($1, $2, $3, $4, decode('7b7d', 'hex'))`,
+          [
+            chart.machineId ?? 'machine',
+            chart.chartId,
+            chart.ownerId,
+            chart.paused ?? false,
+          ],
+        );
+      }
+
+      for (const activity of args.activities ?? []) {
+        await client.query(
+          `INSERT INTO "ongoingActivities" ("machineId", "chartId", "activityId")
+           VALUES ($1, $2, $3)`,
+          [activity.machineId ?? 'machine', activity.chartId, activity.activityId],
+        );
+      }
+
+      for (const deferred of args.deferredLocks ?? []) {
+        await client.query(
+          `INSERT INTO "deferredEvents"
+             ("machineId", "chartId", "eventId", "event", "delay", "due", "lock")
+           VALUES ('machine', $1, '"1"', '{}', 1000, now() + interval '1 hour', $2)`,
+          [deferred.chartId, deferred.lock],
+        );
+      }
+    });
+  }
+
+  async function chartRows(
+    adapter: PGlitePersistenceAdapter,
+  ): Promise<Array<{ chartId: string; ownerId: string | null; paused: boolean }>> {
+    const result = await adapter.withTransaction(async (client) =>
+      client.query<{ chartId: string; ownerId: string | null; paused: boolean }>(
+        'SELECT "chartId", "ownerId", "paused" FROM "charts" ORDER BY "chartId"',
+      ),
+    );
+    return result.rows;
+  }
+
+  it('registerInstance adds an alive row without disturbing live siblings', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [
+        { id: 'sibling', ageSeconds: 10 },
+        { id: 'long-dead', dying: true, ageSeconds: 2 * 60 * 60 },
+      ],
+      charts: [{ chartId: 'c1', ownerId: 'sibling' }],
+    });
+
+    await adapter.registerInstance('newbie', 'cid');
+
+    const instances = await adapter.withTransaction(async (client) =>
+      client.query<{ instanceId: string; dying: boolean }>(
+        'SELECT "instanceId", "dying" FROM "instances" ORDER BY "instanceId"',
+      ),
+    );
+
+    // Sibling untouched, self registered alive, long-dead row reaped.
+    expect(instances.rows).toEqual([
+      { instanceId: 'newbie', dying: false },
+      { instanceId: 'sibling', dying: false },
+    ]);
+
+    // Sibling's chart neither paused nor stolen.
+    expect(await chartRows(adapter)).toEqual([
+      { chartId: 'c1', ownerId: 'sibling', paused: false },
+    ]);
+  });
+
+  it('heartbeatInstance refreshes only the own, alive row', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [
+        { id: 'me', ageSeconds: 120 },
+        { id: 'other', ageSeconds: 120 },
+      ],
+    });
+
+    await adapter.heartbeatInstance('me');
+
+    const rows = await adapter.withTransaction(async (client) =>
+      client.query<{ instanceId: string; ageSeconds: number }>(
+        `SELECT "instanceId",
+                extract(epoch from now() - "timestamp") AS "ageSeconds"
+         FROM "instances" ORDER BY "instanceId"`,
+      ),
+    );
+
+    const me = rows.rows.find((row) => row.instanceId === 'me');
+    const other = rows.rows.find((row) => row.instanceId === 'other');
+    expect(Number(me?.ageSeconds)).toBeLessThan(5);
+    expect(Number(other?.ageSeconds)).toBeGreaterThan(100);
+  });
+
+  it('markStaleInstancesDying marks stale siblings but spares self, fresh and dying rows', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [
+        { id: 'me', ageSeconds: 120 },
+        { id: 'stale-sibling', ageSeconds: 120 },
+        { id: 'fresh-sibling', ageSeconds: 1 },
+        { id: 'already-dying', dying: true, ageSeconds: 120 },
+      ],
+    });
+
+    await adapter.markStaleInstancesDying('me', 60_000);
+
+    const rows = await adapter.withTransaction(async (client) =>
+      client.query<{ instanceId: string; dying: boolean }>(
+        'SELECT "instanceId", "dying" FROM "instances" ORDER BY "instanceId"',
+      ),
+    );
+
+    expect(rows.rows).toEqual([
+      { instanceId: 'already-dying', dying: true },
+      { instanceId: 'fresh-sibling', dying: false },
+      { instanceId: 'me', dying: false },
+      { instanceId: 'stale-sibling', dying: true },
+    ]);
+  });
+
+  it('pauseOrphanedCharts pauses charts not owned by a live instance', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [
+        { id: 'live' },
+        { id: 'dying', dying: true },
+      ],
+      charts: [
+        { chartId: 'live-owned', ownerId: 'live' },
+        { chartId: 'dying-owned', ownerId: 'dying' },
+        { chartId: 'reaped-owned', ownerId: 'gone' },
+        { chartId: 'unowned', ownerId: null },
+        { chartId: 'already-paused', ownerId: 'gone', paused: true },
+      ],
+    });
+
+    const pausedCount = await adapter.pauseOrphanedCharts('cid');
+
+    expect(pausedCount).toBe(3);
+    expect(await chartRows(adapter)).toEqual([
+      { chartId: 'already-paused', ownerId: 'gone', paused: true },
+      { chartId: 'dying-owned', ownerId: 'dying', paused: true },
+      { chartId: 'live-owned', ownerId: 'live', paused: false },
+      { chartId: 'reaped-owned', ownerId: 'gone', paused: true },
+      { chartId: 'unowned', ownerId: null, paused: true },
+    ]);
+  });
+
+  it('releaseOrphanedDeferredEvents unlocks events held by non-live instances', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [
+        { id: 'live' },
+        { id: 'dying', dying: true },
+      ],
+      deferredLocks: [
+        { chartId: 'a', lock: 'live' },
+        { chartId: 'b', lock: 'dying' },
+        { chartId: 'c', lock: 'gone' },
+        { chartId: 'd', lock: null },
+      ],
+    });
+
+    await adapter.releaseOrphanedDeferredEvents('cid');
+
+    const rows = await adapter.withTransaction(async (client) =>
+      client.query<{ chartId: string; lock: string | null }>(
+        'SELECT "chartId", "lock" FROM "deferredEvents" ORDER BY "chartId"',
+      ),
+    );
+
+    expect(rows.rows).toEqual([
+      { chartId: 'a', lock: 'live' },
+      { chartId: 'b', lock: null },
+      { chartId: 'c', lock: null },
+      { chartId: 'd', lock: null },
+    ]);
+  });
+
+  it('gentle adoption claims are atomic: a chart is adopted by exactly one instance', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [{ id: 'a' }, { id: 'b' }],
+      charts: [
+        { chartId: 'idle-paused', ownerId: 'gone', paused: true },
+        { chartId: 'busy-paused', ownerId: 'gone', paused: true },
+        { chartId: 'running', ownerId: 'a' },
+      ],
+      activities: [{ chartId: 'busy-paused', activityId: 'act-1' }],
+    });
+
+    const adoptedByA = await adapter.gentlyAdoptCharts('a', 'cid');
+    const adoptedByB = await adapter.gentlyAdoptCharts('b', 'cid');
+
+    // Only the idle paused chart is gently adoptable, and only once.
+    expect(adoptedByA.map((ref) => ref.chartId)).toEqual(['idle-paused']);
+    expect(adoptedByB).toEqual([]);
+
+    expect(await chartRows(adapter)).toEqual([
+      { chartId: 'busy-paused', ownerId: 'gone', paused: true },
+      { chartId: 'idle-paused', ownerId: 'a', paused: false },
+      { chartId: 'running', ownerId: 'a', paused: false },
+    ]);
+  });
+
+  it('forced adoption claims paused charts and clears their ongoing activities', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [{ id: 'b' }],
+      charts: [
+        { chartId: 'busy-paused', ownerId: 'gone', paused: true },
+        { chartId: 'running', ownerId: 'b' },
+      ],
+      activities: [
+        { chartId: 'busy-paused', activityId: 'act-1' },
+        { chartId: 'running', activityId: 'act-2' },
+      ],
+    });
+
+    const adopted = await adapter.forciblyAdoptCharts('b', 'cid');
+
+    expect(adopted.map((ref) => ref.chartId)).toEqual(['busy-paused']);
+    expect(await chartRows(adapter)).toEqual([
+      { chartId: 'busy-paused', ownerId: 'b', paused: false },
+      { chartId: 'running', ownerId: 'b', paused: false },
+    ]);
+
+    const activities = await adapter.withTransaction(async (client) =>
+      client.query<{ chartId: string }>(
+        'SELECT "chartId" FROM "ongoingActivities" ORDER BY "chartId"',
+      ),
+    );
+    // The adopted chart's stale activity rows are gone; the running chart's stay.
+    expect(activities.rows).toEqual([{ chartId: 'running' }]);
+  });
+
+  it('pauseOwnCharts pauses exactly the charts owned by the instance', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+    await seed(adapter, {
+      instances: [{ id: 'me' }, { id: 'other' }],
+      charts: [
+        { chartId: 'mine', ownerId: 'me' },
+        { chartId: 'theirs', ownerId: 'other' },
+      ],
+    });
+
+    await adapter.pauseOwnCharts('me', 'cid');
+
+    expect(await chartRows(adapter)).toEqual([
+      { chartId: 'mine', ownerId: 'me', paused: true },
+      { chartId: 'theirs', ownerId: 'other', paused: false },
+    ]);
+  });
+});
+
+describe('PGlitePersistenceAdapter: onDeathNote', () => {
+  async function waitUntil(
+    predicate: () => boolean,
+    timeoutMs: number,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate() && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  it('calls the callback when the instance is marked dying', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    await adapter.withTransaction(async (client) => {
+      await client.exec('DELETE FROM "instances"');
+      await client.exec(
+        `INSERT INTO "instances" ("instanceId", "dying") VALUES ('doomed', FALSE)`,
+      );
+    });
+
+    const callback = jest.fn();
+    const cancel = adapter.onDeathNote('doomed', callback);
+
+    try {
+      // Not dying yet: the poller must stay quiet.
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      expect(callback).not.toHaveBeenCalled();
+
+      await adapter.withTransaction(async (client) => {
+        await client.exec(
+          `UPDATE "instances" SET "dying" = TRUE WHERE "instanceId" = 'doomed'`,
+        );
+      });
+
+      await waitUntil(() => callback.mock.calls.length > 0, 3000);
+      expect(callback).toHaveBeenCalledTimes(1);
+    } finally {
+      cancel();
+    }
+  });
+
+  it('does not call the callback after cancellation', async () => {
+    const adapter = await PGlitePersistenceAdapter.connect();
+
+    await adapter.withTransaction(async (client) => {
+      await client.exec('DELETE FROM "instances"');
+      await client.exec(
+        `INSERT INTO "instances" ("instanceId", "dying") VALUES ('spared', FALSE)`,
+      );
+    });
+
+    const callback = jest.fn();
+    const cancel = adapter.onDeathNote('spared', callback);
+    cancel();
+
+    await adapter.withTransaction(async (client) => {
+      await client.exec(
+        `UPDATE "instances" SET "dying" = TRUE WHERE "instanceId" = 'spared'`,
+      );
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(callback).not.toHaveBeenCalled();
+  });
+});
