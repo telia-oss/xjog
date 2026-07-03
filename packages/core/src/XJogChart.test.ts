@@ -527,9 +527,9 @@ describe('ChartOwnershipLostError.is', () => {
   const ref = { machineId: 'm', chartId: 'c' };
 
   it('recognizes a real instance', () => {
-    expect(ChartOwnershipLostError.is(new ChartOwnershipLostError(ref, 'i'))).toBe(
-      true,
-    );
+    expect(
+      ChartOwnershipLostError.is(new ChartOwnershipLostError(ref, 'i')),
+    ).toBe(true);
   });
 
   it('recognizes a same-named error from a duplicated package instance', () => {
