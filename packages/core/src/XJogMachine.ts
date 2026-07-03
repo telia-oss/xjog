@@ -64,11 +64,18 @@ export class XJogMachine<
 
   public constructor(
     public readonly xJog: XJog,
+    // The last three parameters (action, service map, resolved typegen meta)
+    // are left as `any` so that machines built by any typegen mode remain
+    // assignable, and so that states produced by this machine stay compatible
+    // with the plain four-parameter `State<...>` signatures used across xjog.
     public readonly machine: StateMachine<
       TContext,
       TStateSchema,
       TEvent,
-      TTypeState
+      TTypeState,
+      any,
+      any,
+      any
     >,
     options?: XJogMachineOptions,
   ) {
