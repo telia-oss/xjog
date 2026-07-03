@@ -18,6 +18,7 @@ function mockXJogWithStartupManager(
       startup: {
         adoptionFrequency: 20,
         gracePeriod: 75,
+        instanceStaleness: 60_000,
       },
     },
   };
@@ -25,6 +26,10 @@ function mockXJogWithStartupManager(
   xJog.startupManager = new XJogStartupManager(xJog);
 
   return [xJog as unknown as XJog, xJog.startupManager];
+}
+
+async function waitFor(milliseconds: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 describe('XJogStartupManager', () => {
@@ -44,12 +49,16 @@ describe('XJogStartupManager', () => {
 
     expect(startupManager.started).toBe(true);
     expect(startupManager.ready).toBe(true);
+
+    // The reconciler loop runs until stopped; clean it up so jest can exit.
+    await startupManager.stop();
   });
 
   it('Executes the right routines during the startup', async () => {
     const persistence = await PGlitePersistenceAdapter.connect();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
+    jest.spyOn(persistence, 'registerInstance');
     jest.spyOn(persistence, 'overthrowOtherInstances');
     // @ts-expect-error Private access
     jest.spyOn(startupManager, 'startAdoptionGracePeriod');
@@ -58,11 +67,168 @@ describe('XJogStartupManager', () => {
 
     await startupManager.start();
 
-    expect(persistence.overthrowOtherInstances).toHaveBeenCalled();
+    // Non-violent boot: register self, never stage a coup against siblings.
+    expect(persistence.registerInstance).toHaveBeenCalled();
+    expect(persistence.overthrowOtherInstances).not.toHaveBeenCalled();
     // @ts-expect-error Private access
     expect(startupManager.startAdoptionGracePeriod).toHaveBeenCalled();
     // @ts-expect-error Private access
     expect(startupManager.adoptCharts).toHaveBeenCalled();
+
+    await startupManager.stop();
+  });
+});
+
+describe('XJogStartupManager: live handoff', () => {
+  async function seedInstance(
+    persistence: PersistenceAdapter,
+    id: string,
+    ageSeconds = 0,
+  ): Promise<void> {
+    await persistence.withTransaction(async (client: any) => {
+      await client.query(
+        `INSERT INTO "instances" ("instanceId", "dying", "timestamp")
+         VALUES ($1, FALSE, now() - make_interval(secs => $2))`,
+        [id, ageSeconds],
+      );
+    });
+  }
+
+  async function seedChart(
+    persistence: PersistenceAdapter,
+    chartId: string,
+    ownerId: string,
+    paused = false,
+  ): Promise<void> {
+    await persistence.withTransaction(async (client: any) => {
+      await client.query(
+        `INSERT INTO "charts"
+           ("machineId", "chartId", "ownerId", "paused", "state")
+         VALUES ('machine', $1, $2, $3, decode('7b7d', 'hex'))`,
+        [chartId, ownerId, paused],
+      );
+    });
+  }
+
+  async function readCharts(
+    persistence: PersistenceAdapter,
+  ): Promise<Array<{ chartId: string; ownerId: string; paused: boolean }>> {
+    const result = await persistence.withTransaction(async (client: any) =>
+      client.query(
+        'SELECT "chartId", "ownerId", "paused" FROM "charts" ORDER BY "chartId"',
+      ),
+    );
+    return (result as any).rows;
+  }
+
+  async function readInstances(
+    persistence: PersistenceAdapter,
+  ): Promise<Array<{ instanceId: string; dying: boolean }>> {
+    const result = await persistence.withTransaction(async (client: any) =>
+      client.query(
+        'SELECT "instanceId", "dying" FROM "instances" ORDER BY "instanceId"',
+      ),
+    );
+    return (result as any).rows;
+  }
+
+  it('Boot leaves a live sibling and its charts untouched', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [, startupManager] = mockXJogWithStartupManager(persistence);
+
+    await seedInstance(persistence, 'sibling');
+    await seedChart(persistence, 'sibling-chart', 'sibling');
+
+    await startupManager.start();
+
+    expect(await readInstances(persistence)).toEqual([
+      { instanceId: 'sibling', dying: false },
+      { instanceId: 'xjog-id', dying: false },
+    ]);
+    expect(await readCharts(persistence)).toEqual([
+      { chartId: 'sibling-chart', ownerId: 'sibling', paused: false },
+    ]);
+    // Nothing to adopt, so the boot is immediately ready.
+    expect(startupManager.ready).toBe(true);
+
+    await startupManager.stop();
+  });
+
+  it('Reconciler adopts charts paused by a departing sibling after readiness', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+
+    const runStep = jest.fn().mockResolvedValue(undefined);
+    (xJog as any).getChart = jest.fn().mockResolvedValue({ runStep });
+
+    await startupManager.start();
+    expect(startupManager.ready).toBe(true);
+
+    // A sibling drains and pauses its chart AFTER our startup completed.
+    await seedChart(persistence, 'handed-over', 'departed-sibling', true);
+
+    await waitFor(200); // several reconciler cycles at 20ms
+
+    expect(await readCharts(persistence)).toEqual([
+      { chartId: 'handed-over', ownerId: 'xjog-id', paused: false },
+    ]);
+    expect(runStep).toHaveBeenCalled();
+
+    await startupManager.stop();
+  });
+
+  it('Reconciler marks a stale sibling dying and adopts its charts', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
+    (xJog as any).options.startup.instanceStaleness = 50;
+
+    const runStep = jest.fn().mockResolvedValue(undefined);
+    (xJog as any).getChart = jest.fn().mockResolvedValue({ runStep });
+
+    // Crashed sibling: alive row with an ancient heartbeat, unpaused chart.
+    await seedInstance(persistence, 'crashed-sibling', 3600);
+    await seedChart(persistence, 'stranded-chart', 'crashed-sibling');
+
+    await startupManager.start();
+    await waitFor(200);
+
+    const instances = await readInstances(persistence);
+    expect(instances).toContainEqual({
+      instanceId: 'crashed-sibling',
+      dying: true,
+    });
+    expect(await readCharts(persistence)).toEqual([
+      { chartId: 'stranded-chart', ownerId: 'xjog-id', paused: false },
+    ]);
+
+    await startupManager.stop();
+  });
+
+  it('Reconciler heartbeats the own instance row', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const [, startupManager] = mockXJogWithStartupManager(persistence);
+
+    await startupManager.start();
+
+    // Age the own row artificially; the next cycles must refresh it.
+    await persistence.withTransaction(async (client: any) => {
+      await client.query(
+        `UPDATE "instances" SET "timestamp" = now() - interval '1 hour'
+         WHERE "instanceId" = 'xjog-id'`,
+      );
+    });
+
+    await waitFor(100);
+
+    const result = await persistence.withTransaction(async (client: any) =>
+      client.query(
+        `SELECT extract(epoch from now() - "timestamp") AS "ageSeconds"
+         FROM "instances" WHERE "instanceId" = 'xjog-id'`,
+      ),
+    );
+    expect(Number((result as any).rows[0].ageSeconds)).toBeLessThan(5);
+
+    await startupManager.stop();
   });
 });
 

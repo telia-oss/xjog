@@ -465,3 +465,51 @@ describe('XJogChart: named delay on re-entry after parallel onDone', () => {
     expect(typeof secondCycleDeferCalls[0][0].delay).toBe('number');
   });
 });
+
+describe('XJogChart: ownership fencing on state writes', () => {
+  it('refuses to overwrite a chart another instance owns and evicts it from the cache', async () => {
+    const persistence = await PGlitePersistenceAdapter.connect();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine({
+      id: 'fencing-machine',
+      initial: 'idle',
+      states: {
+        idle: { on: { go: 'done' } },
+        done: { type: 'final' },
+      },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const chart = await xJogMachine.createChart();
+
+    // A sibling instance adopts the chart behind this instance's back
+    // (stale-instance takeover while this event loop was wedged).
+    await persistence.withTransaction(async (client) => {
+      await client.query('UPDATE "charts" SET "ownerId" = $1', ['usurper']);
+    });
+
+    // The fenced write must not go through; send reports failure with null.
+    const result = await chart.send('go');
+    expect(result).toBeNull();
+
+    // The persisted state is untouched — still the owner's version.
+    const persisted = await persistence.withTransaction(async (client) =>
+      client.query<{ ownerId: string; state: Uint8Array }>(
+        'SELECT "ownerId", "state" FROM "charts"',
+      ),
+    );
+    expect(persisted.rows[0].ownerId).toBe('usurper');
+    const persistedState = JSON.parse(
+      Buffer.from(persisted.rows[0].state).toString('utf-8'),
+    );
+    expect(persistedState.value).toBe('idle');
+
+    // The stale chart object is evicted so the next getChart reloads from
+    // the database instead of serving the poisoned in-memory copy.
+    // Eviction is asynchronous (it waits for the send mutex to release).
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const reloaded = await xJogMachine.getChart(chart.id);
+    expect(reloaded).not.toBe(chart);
+  });
+});

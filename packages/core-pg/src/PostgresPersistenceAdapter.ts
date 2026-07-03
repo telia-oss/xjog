@@ -211,6 +211,116 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     );
   }
 
+  protected async updateInstanceHeartbeat(
+    id: string,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<void> {
+    // For alive rows "timestamp" doubles as the liveness heartbeat; for dying
+    // rows it is the time of death and must not be refreshed.
+    await connection.query(
+      bind(
+        'UPDATE "instances" SET "timestamp"=now() ' +
+          'WHERE "instanceId"=:id AND "dying"=FALSE',
+        { id },
+      ),
+    );
+  }
+
+  protected async markStaleInstancesAsDying(
+    id: string,
+    stalenessMs: number,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      bind(
+        'UPDATE "instances" SET "dying"=TRUE, "timestamp"=now() ' +
+          'WHERE "dying"=FALSE AND "instanceId" <> :id ' +
+          'AND "timestamp" < now() - make_interval(secs => :seconds)',
+        { id, seconds: stalenessMs / 1000 },
+      ),
+    );
+    return result.rowCount ?? 0;
+  }
+
+  protected async pauseChartsWithoutLiveOwner(
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'UPDATE "charts" SET "paused"=TRUE ' +
+        'WHERE "paused"=FALSE AND ("ownerId" IS NULL OR "ownerId" NOT IN (' +
+        '  SELECT "instanceId" FROM "instances" WHERE "dying"=FALSE' +
+        '))',
+    );
+    return result.rowCount ?? 0;
+  }
+
+  protected async pauseChartsOwnedBy(
+    id: string,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      bind(
+        'UPDATE "charts" SET "paused"=TRUE ' +
+          'WHERE "paused"=FALSE AND "ownerId"=:id',
+        { id },
+      ),
+    );
+    return result.rowCount ?? 0;
+  }
+
+  protected async releaseDeferredEventsWithoutLiveOwner(
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      'UPDATE "deferredEvents" SET "lock"=NULL ' +
+        'WHERE "lock" IS NOT NULL AND "lock" NOT IN (' +
+        '  SELECT "instanceId" FROM "instances" WHERE "dying"=FALSE' +
+        ')',
+    );
+    return result.rowCount ?? 0;
+  }
+
+  protected async claimPausedChart(
+    instanceId: string,
+    ref: ChartReference,
+    requireIdle: boolean,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<boolean> {
+    const result = await connection.query(
+      bind(
+        'UPDATE "charts" SET "ownerId"=:instanceId, "paused"=FALSE ' +
+          'WHERE "machineId"=:machineId AND "chartId"=:chartId ' +
+          'AND "paused"=TRUE ' +
+          (requireIdle
+            ? 'AND NOT EXISTS (' +
+              '  SELECT 1 FROM "ongoingActivities" ' +
+              '  WHERE "machineId"=:machineId AND "chartId"=:chartId' +
+              ') '
+            : ''),
+        {
+          instanceId,
+          machineId: ref.machineId,
+          chartId: ref.chartId,
+        },
+      ),
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  protected async deleteOngoingActivitiesForChart(
+    ref: ChartReference,
+    connection: Pool | PoolClient = this.pool,
+  ): Promise<number> {
+    const result = await connection.query(
+      bind(
+        'DELETE FROM "ongoingActivities" ' +
+          'WHERE "machineId"=:machineId AND "chartId"=:chartId',
+        { machineId: ref.machineId, chartId: ref.chartId },
+      ),
+    );
+    return result.rowCount ?? 0;
+  }
+
   protected async markAllChartsPaused(
     connection: Pool | PoolClient = this.pool,
   ): Promise<void> {
@@ -341,6 +451,12 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
         ),
       );
 
+      // Re-check after the await: cancel() may have run meanwhile, or a
+      // parallel in-flight poll may already have delivered the note.
+      if (cancelled) {
+        return;
+      }
+
       const dying = Number(result.rows[0].dying) > 0;
 
       if (dying) {
@@ -349,9 +465,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
           clearInterval(timer);
           timer = null;
         }
-        if (!cancelled) {
-          callback();
-        }
+        callback();
       }
     }, 500);
 
@@ -440,19 +554,23 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
   protected async updateChartState<TContext, TEvent extends EventObject>(
     ref: ChartReference,
     state: State<TContext, TEvent, StateSchema<TContext>, Typestate<TContext>>,
+    expectedOwnerId: string | null = null,
     connection: Pool | PoolClient = this.pool,
-  ): Promise<void> {
-    await connection.query(
+  ): Promise<number> {
+    const result = await connection.query(
       bind(
         'UPDATE "charts" SET "state" = :state ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId',
+          'WHERE "machineId" = :machineId AND "chartId" = :chartId' +
+          (expectedOwnerId !== null ? ' AND "ownerId" = :expectedOwnerId' : ''),
         {
           machineId: ref.machineId,
           chartId: ref.chartId,
           state: Buffer.from(JSON.stringify(state)),
+          ...(expectedOwnerId !== null ? { expectedOwnerId } : {}),
         },
       ),
     );
+    return result.rowCount ?? 0;
   }
 
   public async destroyChart(

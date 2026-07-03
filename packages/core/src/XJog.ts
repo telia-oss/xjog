@@ -275,6 +275,13 @@ export class XJog extends XJogLogEmitter {
     trace('Preparing to die');
     this.dying = true;
 
+    // Stop the adoption reconciler before deregistering: once this instance
+    // is marked dying its charts count as orphans, and a still-running
+    // reconciler would pause them and claim them right back, fighting the
+    // successor that is trying to adopt them.
+    trace('Stopping the adoption reconciler');
+    await this.startupManager.stop();
+
     trace('Removing instance from database');
     await this.persistence.removeInstance(this.id, cid);
 
@@ -283,11 +290,6 @@ export class XJog extends XJogLogEmitter {
 
     trace('Stopping all ongoing activities');
     await this.activityManager.stopAllActivities(cid);
-
-    if (!this.startupManager.ready) {
-      trace('Startup still working, stopping');
-      await this.startupManager.stop();
-    }
 
     const instanceCount = await this.persistence.countAliveInstances();
 
