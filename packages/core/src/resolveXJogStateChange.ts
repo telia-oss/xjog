@@ -53,7 +53,10 @@ function mapState<
   return {
     value: clone ? structuredClone(state.value) : state.value,
     context: clone ? structuredClone(state.context) : state.context,
-    actions: mapActions(state.actions),
+    // ActionObject lost its permissive index signatures in xstate 4.38, so it
+    // no longer satisfies BaseActionObject structurally; at runtime the
+    // resolved actions are the same plain objects they were in 4.26.
+    actions: mapActions(state.actions as unknown as BaseActionObject[]),
   };
 }
 

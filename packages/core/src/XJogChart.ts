@@ -17,10 +17,13 @@ import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
 import { concat, filter, from, map, type Observable, of } from 'rxjs';
 import {
   type ActionObject,
+  type ActionFunction,
   ActionTypes,
+  type BaseActionObject,
   type ActivityActionObject,
   type AnyEventObject,
   type CancelAction,
+  type LogActionObject,
   type DelayFunctionMap,
   type Event,
   type EventObject,
@@ -350,16 +353,18 @@ export class XJogChart<
     xJogMachine: XJogMachine<TContext, TStateSchema, TEvent, TTypeState>,
     chartId: string,
     state: State<TContext, TEvent, TStateSchema, TTypeState>,
-  ): Promise<Array<ActionObject<TContext, TEvent>>> {
+  ): Promise<Array<SendActionObject<TContext, TEvent>>> {
     const afterActions = state.configuration.flatMap((stateNode) =>
       XJogChart.resolveAfterActionsForStateNode(
         stateNode,
-        xJogMachine.machine.options.delays,
+        xJogMachine.machine.options.delays as
+          | DelayFunctionMap<TContext, TEvent>
+          | undefined,
         state.context,
       ),
     );
 
-    const missingAfterActions: Array<ActionObject<TContext, TEvent>> = [];
+    const missingAfterActions: Array<SendActionObject<TContext, TEvent>> = [];
 
     for (const action of afterActions) {
       if (!action.id) {
@@ -443,7 +448,7 @@ export class XJogChart<
     stateNode: StateNode<TContext, any, TEvent>,
     delays: DelayFunctionMap<TContext, TEvent> | undefined,
     context: TContext,
-  ): Array<ActionObject<TContext, TEvent>> {
+  ): Array<SendActionObject<TContext, TEvent>> {
     return stateNode.after
       .map((transition) => ({
         transition,
@@ -468,7 +473,7 @@ export class XJogChart<
             delay: resolvedDelay as number,
             event: { type: transition.eventType },
             _event: toSCXMLEvent({ type: transition.eventType }),
-          }) as ActionObject<TContext, TEvent>,
+          }) as SendActionObject<TContext, TEvent>,
       );
   }
 
@@ -989,10 +994,15 @@ export class XJogChart<
       const actionOrExec =
         action.exec || getActionFunction(action.type, machine.options.actions);
 
+      // The `isFunction` guard is a runtime check: action objects are plain
+      // objects, so they fall through to the `.exec` lookup. The casts are
+      // needed because xstate 4.38's ActionObject type declares a phantom
+      // call signature (a TS inference aid that doesn't exist at runtime),
+      // which makes the narrowing collapse the object branch to `never`.
       const exec = isFunction(actionOrExec)
-        ? actionOrExec
+        ? (actionOrExec as ActionFunction<TContext, TEvent>)
         : actionOrExec
-          ? actionOrExec.exec
+          ? (actionOrExec as ActionObject<TContext, TEvent>).exec
           : action.exec;
 
       // If it's immediately executable, run it...
@@ -1017,7 +1027,11 @@ export class XJogChart<
           await this.xJog.timeExecution(
             'chart.execute action.send',
             async () => {
-              const delay = action.delay ?? 0;
+              const sendAction = action as unknown as SendActionObject<
+                TContext,
+                TEvent
+              >;
+              const delay = sendAction.delay ?? 0;
 
               const PersistedDeferredEvent: Omit<
                 PersistedDeferredEvent,
@@ -1026,11 +1040,15 @@ export class XJogChart<
                 eventId: string | number;
               } = {
                 ref: this.ref,
-                event: action._event,
+                event: sendAction._event,
                 // TODO what should we send as eventId
-                eventId: action.id ?? randomUUID(),
+                eventId: sendAction.id ?? randomUUID(),
                 // TODO should we also send actionId and sendId?
-                eventTo: action.to ?? null,
+                eventTo: (sendAction.to ?? null) as
+                  | string
+                  | number
+                  | ActivityRef
+                  | null,
                 delay,
                 lock: null,
               };
@@ -1061,7 +1079,7 @@ export class XJogChart<
           await this.xJog.timeExecution(
             'chart.execute action.cancel',
             async () => {
-              const sendId = (action as CancelAction).sendId;
+              const sendId = (action as CancelAction<TContext, TEvent>).sendId;
               trace({ message: 'Canceling event', sendId });
               await this.xJog.deferredEventManager.cancel(
                 sendId,
@@ -1090,7 +1108,15 @@ export class XJogChart<
                 // Invoked services
                 if (activity.type === ActionTypes.Invoke) {
                   trace({ message: 'Invoking service', activityId });
-                  await this.invokeService(action.id, state, activity, cid);
+                  // `id` is not part of the ActivityActionObject type, but
+                  // xstate attaches it at runtime; BaseActionObject keeps the
+                  // permissive index signature that ActionObject had in 4.26.
+                  await this.invokeService(
+                    (action as unknown as BaseActionObject).id,
+                    state,
+                    activity,
+                    cid,
+                  );
                 }
 
                 // Spawn
@@ -1135,7 +1161,10 @@ export class XJogChart<
 
         case ActionTypes.Log: {
           await this.xJog.timeExecution('chart.execute action.log', () => {
-            const { label, value } = action;
+            const { label, value } = action as LogActionObject<
+              TContext,
+              TEvent
+            >;
             const message = isFunction(value) ? value() : value;
             this.info(message, { label });
           });
@@ -1591,10 +1620,16 @@ export class XJogChart<
     machine: StateMachine<TChildContext, TChildStateSchema, TChildEvent>,
     options: SpawnOptions,
   ): Promise<ActivityRef> {
+    // The trailing `any` (resolved typegen meta) keeps the declaration
+    // assignable from `new Interpreter(machine)`, whose machine carries the
+    // default ResolveTypegenMeta while a bare Interpreter<...> defaults to
+    // TypegenDisabled.
     let childService: Interpreter<
       TChildContext,
       TChildStateSchema,
-      TChildEvent
+      TChildEvent,
+      { value: any; context: TChildContext },
+      any
     > | null = null;
 
     // const observers = new Set<Observer<EventObject>>();

@@ -25,7 +25,7 @@
     "@samihult/xjog-journal-persistence": "workspace:^",
     "@samihult/xjog-util": "workspace:^",
     "node-pg-migrate": "^6.2.1",
-    "xstate": "4.26.1"
+    "xstate": "4.38.3"
   },
   "devDependencies": {}
 }
