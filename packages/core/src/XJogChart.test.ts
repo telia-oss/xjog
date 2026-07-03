@@ -1,4 +1,5 @@
 import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { ChartOwnershipLostError } from '@samihult/xjog-core-persistence';
 import { Subject } from 'rxjs';
 import { createMachine, interpret, State } from 'xstate';
 
@@ -489,9 +490,17 @@ describe('XJogChart: ownership fencing on state writes', () => {
       await client.query('UPDATE "charts" SET "ownerId" = $1', ['usurper']);
     });
 
-    // The fenced write must not go through; send reports failure with null.
-    const result = await chart.send('go');
-    expect(result).toBeNull();
+    // The fenced write must not go through. Ownership loss is an expected,
+    // self-correcting handoff condition, so send() surfaces it as a DISTINCT
+    // error — not the generic null — letting callers skip failure accounting
+    // and ask their client to retry.
+    let thrown: unknown;
+    try {
+      await chart.send('go');
+    } catch (error) {
+      thrown = error;
+    }
+    expect(ChartOwnershipLostError.is(thrown)).toBe(true);
 
     // The persisted state is untouched — still the owner's version.
     const persisted = await persistence.withTransaction(async (client) =>
@@ -511,5 +520,30 @@ describe('XJogChart: ownership fencing on state writes', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     const reloaded = await xJogMachine.getChart(chart.id);
     expect(reloaded).not.toBe(chart);
+  });
+});
+
+describe('ChartOwnershipLostError.is', () => {
+  const ref = { machineId: 'm', chartId: 'c' };
+
+  it('recognizes a real instance', () => {
+    expect(ChartOwnershipLostError.is(new ChartOwnershipLostError(ref, 'i'))).toBe(
+      true,
+    );
+  });
+
+  it('recognizes a same-named error from a duplicated package instance', () => {
+    // pnpm can resolve two copies of xjog-core-persistence into a consumer's
+    // tree; instanceof fails across them, so the guard matches by name.
+    const foreign = new Error('lost');
+    foreign.name = 'ChartOwnershipLostError';
+    expect(ChartOwnershipLostError.is(foreign)).toBe(true);
+  });
+
+  it('rejects other errors and non-errors', () => {
+    expect(ChartOwnershipLostError.is(new Error('nope'))).toBe(false);
+    expect(ChartOwnershipLostError.is(null)).toBe(false);
+    expect(ChartOwnershipLostError.is(undefined)).toBe(false);
+    expect(ChartOwnershipLostError.is('ChartOwnershipLostError')).toBe(false);
   });
 });

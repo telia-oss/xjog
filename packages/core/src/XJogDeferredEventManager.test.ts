@@ -1,7 +1,10 @@
 import { toSCXMLEvent } from 'xstate/lib/utils';
 
 import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
-import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
+import {
+  ChartOwnershipLostError,
+  PersistenceAdapter,
+} from '@samihult/xjog-core-persistence';
 import { waitFor } from '@samihult/xjog-util';
 
 import { XJogDeferredEventManager } from './XJogDeferredEventManager';
@@ -682,5 +685,54 @@ describe('XJogDeferredEventManager', () => {
         await deferredEventManager.releaseAll();
       }
     });
+  });
+});
+
+describe('XJogDeferredEventManager: ownership loss during deferred send', () => {
+  it('unlocks the event for the owner instead of removing or keeping it locked', async () => {
+    const persistence = createInMemoryPersistence();
+    (persistence as any).releaseDeferredEvent = jest.fn(async () => {});
+
+    // Short interval like the other tests: a leftover read timer fires once,
+    // sees the dying flag set in the finally block, and stops — keeping the
+    // event loop clean so jest can exit.
+    const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
+      persistence,
+      { batchSize: 5, lookAhead: 20, interval: 30 },
+    );
+
+    const ref = { machineId: 'A', chartId: '1' };
+    const ownershipLost = new ChartOwnershipLostError(ref, 'xjog-id');
+    (xJog.sendEvent as jest.Mock).mockRejectedValue(ownershipLost);
+
+    try {
+      await deferredEventManager.defer({
+        eventId: 'e-7',
+        ref,
+        event: toSCXMLEvent('due now'),
+        delay: 0,
+      });
+
+      // Read the due event and fire its timer.
+      await deferredEventManager.scheduleUpcoming();
+      await waitFor(50);
+
+      expect(xJog.sendEvent).toHaveBeenCalled();
+
+      // The chart belongs to another live instance now. This instance must
+      // hand the event back (lock=NULL) so the owner's deferred loop can
+      // fire it -- the reconciler only unlocks events of DEAD instances, so
+      // keeping the lock would strand the timer forever.
+      expect((persistence as any).releaseDeferredEvent).toHaveBeenCalledWith(
+        ref,
+        'e-7',
+      );
+      // And it must NOT be treated as delivered.
+      expect(persistence.removeDeferredEvent).not.toHaveBeenCalled();
+    } finally {
+      // @ts-ignore test-only shutdown flag
+      xJog.dying = true;
+      await deferredEventManager.releaseAll();
+    }
   });
 });
