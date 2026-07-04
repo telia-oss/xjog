@@ -1,20 +1,12 @@
 import path from 'node:path';
 import {
+  AbstractPostgresJournalPersistenceAdapter,
   type FullStateEntry,
-  type FullStateQuery,
   type JournalEntry,
-  type JournalEntryAutoFields,
-  type JournalEntryInsertFields,
-  JournalPersistenceAdapter,
-  type JournalQuery,
 } from '@telia-oss/xjog-journal-persistence';
-import type { ChartReference } from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import { Client, type PoolConfig } from 'pg';
-import bind from 'pg-bind';
+import { Client, type PoolConfig, type QueryResultRow } from 'pg';
 import createSubscriber from 'pg-listen';
-import type { PostgresFullStateRow } from './PostgresFullStateRow';
-import type { PostgresJournalRow } from './PostgresJournalRow';
 
 /**
  * Options for instantiating {@link PostgresJournalPersistenceAdapter}.
@@ -27,9 +19,11 @@ export type PostgresJournalPersistenceAdapterOptions = {
  * Use the static method `connect` to instantiate.
  * @hideconstructor
  */
-export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter {
+export class PostgresJournalPersistenceAdapter extends AbstractPostgresJournalPersistenceAdapter {
   public readonly component = 'journal/persistence';
   public readonly type = 'pg';
+
+  protected readonly newJournalEntryChannel = 'new-journal-entry';
 
   private readonly stopObservingNewJournalEntries: Promise<() => Promise<void>>;
 
@@ -123,214 +117,34 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
     await this.readConnection.end();
   }
 
-  protected async insertEntry(
-    entry: JournalEntryInsertFields,
-  ): Promise<JournalEntryAutoFields> {
-    const query = bind(
-      'INSERT INTO "journalEntries" ' +
-        '(' +
-        '  "machineId", "chartId", "event",  ' +
-        '  "state", "context", "stateDelta", "contextDelta", ' +
-        '  "actions" ' +
-        ') ' +
-        'VALUES (' +
-        '  :machineId, :chartId, :event, NULL, NULL, ' +
-        '  :stateDelta, :contextDelta, :actions ' +
-        ') ' +
-        'RETURNING ' +
-        '  "id", extract(epoch from "timestamp") * 1000 as "timestamp" ',
-      {
-        machineId: entry.ref.machineId,
-        chartId: entry.ref.chartId,
-        event: entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
-        stateDelta: Buffer.from(JSON.stringify(entry.stateDelta)),
-        contextDelta: Buffer.from(JSON.stringify(entry.contextDelta)),
-        actions: entry.actions
-          ? Buffer.from(JSON.stringify(entry.actions))
-          : null,
-      },
+  protected async runWriteQuery<T>(
+    sql: string,
+    params?: unknown[],
+  ): Promise<{ rows: T[]; rowCount: number }> {
+    const result = await this.writeConnection.query<QueryResultRow>(
+      sql,
+      params,
     );
-
-    const result = await this.writeConnection.query(query);
-
-    if (!result.rowCount) {
-      throw new Error('Failed to write journal entry');
-    }
-
-    return {
-      id: result.rows[0].id,
-      timestamp: Number(result.rows[0].timestamp),
-    };
+    return { rows: result.rows as T[], rowCount: result.rowCount ?? 0 };
   }
 
-  protected async updateFullState(entry: FullStateEntry): Promise<void> {
-    const query = bind(
-      'INSERT INTO "fullJournalStates" ' +
-        '( ' +
-        '  "id", "created", "timestamp", ' +
-        '  "ownerId", "machineId", "chartId", ' +
-        '  "parentMachineId", "parentChartId", ' +
-        '  "event", "state", "context", ' +
-        '  "actions" ' +
-        ') ' +
-        'VALUES (' +
-        '  :id, to_timestamp(:timestamp::decimal / 1000), ' +
-        '  to_timestamp(:timestamp::decimal / 1000), ' +
-        '  :ownerId, :machineId, :chartId, ' +
-        '  :parentMachineId, :parentChartId, ' +
-        '  :event, :state, :context,' +
-        '  :actions ' +
-        ') ON CONFLICT (' +
-        '  "machineId", "chartId" ' +
-        ') DO UPDATE SET ' +
-        '  "id" = :id, "timestamp" = to_timestamp(:timestamp::decimal / 1000), ' +
-        '  "event" = :event, "state" = :state, "context" = :context, ' +
-        '  "actions" = :actions ' +
-        'WHERE "fullJournalStates"."id" < :id ',
-      {
-        id: entry.id,
-        timestamp: entry.timestamp,
-        ownerId: entry.ownerId,
-        machineId: entry.ref.machineId,
-        chartId: entry.ref.chartId,
-        parentMachineId: entry.parentRef?.machineId ?? null,
-        parentChartId: entry.parentRef?.chartId ?? null,
-        event: entry.event ? Buffer.from(JSON.stringify(entry.event)) : null,
-        state: entry.state ? Buffer.from(JSON.stringify(entry.state)) : null,
-        context: entry.context
-          ? Buffer.from(JSON.stringify(entry.context))
-          : null,
-        actions: entry.actions
-          ? Buffer.from(JSON.stringify(entry.actions))
-          : null,
-      },
+  protected async runUpdateQuery<T>(
+    sql: string,
+    params?: unknown[],
+  ): Promise<{ rows: T[]; rowCount: number }> {
+    const result = await this.updateConnection.query<QueryResultRow>(
+      sql,
+      params,
     );
-
-    const result = await this.writeConnection.query(query);
-
-    if (!result.rowCount) {
-      throw new Error('Failed to write journal full entry');
-    }
-
-    return result.rows[0];
+    return { rows: result.rows as T[], rowCount: result.rowCount ?? 0 };
   }
 
-  protected async emitJournalEntryNotification(
-    id: number,
-    ref: ChartReference,
-  ): Promise<void> {
-    const payload = JSON.stringify({
-      id,
-      machineId: ref.machineId,
-      chartId: ref.chartId,
-    });
-
-    await this.updateConnection.query(
-      bind("SELECT pg_notify('new-journal-entry', :payload::text)", {
-        payload,
-      }),
-    );
-  }
-
-  /** These SQL fields correspond to {@link PostgresJournalRow} */
-  private readonly journalEntrySqlSelectFields =
-    '  "id", extract(epoch from "timestamp") * 1000 as "timestamp", ' +
-    '  "machineId", "chartId", "event", ' +
-    '  "state", "stateDelta", "context", "contextDelta", ' +
-    '  "actions" ';
-
-  public async readEntry(id: number): Promise<JournalEntry | null> {
-    const result = await this.readConnection.query<PostgresJournalRow>(
-      bind(
-        'SELECT ' +
-          this.journalEntrySqlSelectFields +
-          'FROM "journalEntries" WHERE "id"=:id::bigint',
-        { id },
-      ),
-    );
-
-    if (!result.rowCount) {
-      return null;
-    }
-
-    return PostgresJournalPersistenceAdapter.parseSqlJournalRow(result.rows[0]);
-  }
-
-  public async queryEntries(query: JournalQuery): Promise<JournalEntry[]> {
-    let result;
-
-    if (Array.isArray(query)) {
-      if (!query.length) {
-        return [];
-      }
-
-      result = await this.readConnection.query<PostgresJournalRow>(
-        'SELECT ' +
-          this.journalEntrySqlSelectFields +
-          'FROM "journalEntries" ' +
-          'JOIN (VALUES ' +
-          query
-            .map(
-              ({ machineId, chartId }) =>
-                `(${this.readConnection.escapeLiteral(machineId)}, ` +
-                `${this.readConnection.escapeLiteral(chartId)})`,
-            )
-            .join(', ') +
-          ') ' +
-          '  AS "queryValues" ("queryMachineId", "queryChartId") ' +
-          'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" ',
-      );
-    } else {
-      result = await this.readConnection.query<PostgresJournalRow>(
-        bind(
-          'SELECT ' +
-            this.journalEntrySqlSelectFields +
-            'FROM "journalEntries" ' +
-            'WHERE TRUE ' +
-            (query.ref !== undefined
-              ? '  AND "machineId" = :machineId AND "chartId" = :chartId '
-              : '') +
-            (query.afterId !== undefined
-              ? '  AND "id" > :afterId::bigint '
-              : '') +
-            (query.afterAndIncludingId !== undefined
-              ? '  AND "id" >= :afterAndIncludingId::bigint '
-              : '') +
-            (query.beforeId !== undefined
-              ? '  AND "id" < :beforeId::bigint '
-              : '') +
-            (query.beforeAndIncludingId !== undefined
-              ? '  AND "id" <= :beforeAndIncludingId::bigint '
-              : '') +
-            (query.updatedAfterAndIncluding !== undefined
-              ? '  AND "timestamp" >= to_timestamp(:updatedAfterAndIncluding::decimal / 1000) '
-              : '') +
-            (query.updatedBeforeAndIncluding !== undefined
-              ? '  AND "timestamp" <= to_timestamp(:updatedBeforeAndIncluding::decimal / 1000) '
-              : '') +
-            'ORDER BY "id" ' +
-            (query.order ?? 'ASC') +
-            (query.offset !== undefined ? '  OFFSET :offset' : '') +
-            (query.limit !== undefined ? '  LIMIT :limit' : ''),
-          {
-            machineId: query.ref?.machineId,
-            chartId: query.ref?.chartId,
-            afterId: query.afterId,
-            afterAndIncludingId: query.afterAndIncludingId,
-            beforeId: query.beforeId,
-            beforeAndIncludingId: query.beforeAndIncludingId,
-            updatedAfterAndIncluding: query.updatedAfterAndIncluding,
-            updatedBeforeAndIncluding: query.updatedBeforeAndIncluding,
-            offset: query.offset,
-            limit: query.limit,
-          },
-        ),
-      );
-    }
-
-    return result.rows.map(
-      PostgresJournalPersistenceAdapter.parseSqlJournalRow,
-    );
+  protected async runReadQuery<T>(
+    sql: string,
+    params?: unknown[],
+  ): Promise<{ rows: T[]; rowCount: number }> {
+    const result = await this.readConnection.query<QueryResultRow>(sql, params);
+    return { rows: result.rows as T[], rowCount: result.rowCount ?? 0 };
   }
 
   private async startObservingNewJournalEntries(): Promise<
@@ -341,7 +155,7 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
     let journalEntryIdPointer = 0;
     let fullStateEntryIdPointer = 0;
 
-    const channel = 'new-journal-entry';
+    const channel = this.newJournalEntryChannel;
     const journalSubscriber = createSubscriber(this.listenerConfig);
 
     const yieldJournalEntries = (journalEntries: JournalEntry[]) => {
@@ -409,223 +223,6 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
 
     return async () => {
       await journalSubscriber.close();
-    };
-  }
-
-  /** These SQL fields correspond to {@link PostgresFullStateRow} */
-  private readonly fullStateEntrySqlSelectFields =
-    '  "id", extract(epoch from "created") * 1000 as "created", ' +
-    '  extract(epoch from "timestamp") * 1000 as "timestamp", ' +
-    '  "machineId", "chartId", "parentMachineId", "parentChartId", ' +
-    '  "event", "state", "context", "actions" ';
-
-  public async readFullState(
-    ref: ChartReference,
-  ): Promise<FullStateEntry | null> {
-    const result = await this.readConnection.query<PostgresFullStateRow>(
-      bind(
-        'SELECT ' +
-          this.fullStateEntrySqlSelectFields +
-          'FROM "fullJournalStates" ' +
-          'WHERE "machineId" = :machineId AND "chartId" = :chartId ',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
-    );
-
-    if (!result.rowCount) {
-      return null;
-    }
-
-    return PostgresJournalPersistenceAdapter.parseSqlFullStateRow(
-      result.rows[0],
-    );
-  }
-
-  public async queryFullStates(
-    query: FullStateQuery,
-  ): Promise<FullStateEntry[]> {
-    let result;
-
-    if (Array.isArray(query)) {
-      if (!query.length) {
-        return [];
-      }
-
-      result = await this.readConnection.query<PostgresFullStateRow>(
-        'SELECT ' +
-          this.fullStateEntrySqlSelectFields +
-          'FROM "fullJournalStates" ' +
-          'JOIN (VALUES ' +
-          query
-            .map(
-              ({ machineId, chartId }) =>
-                `(${this.readConnection.escapeLiteral(machineId)}, ` +
-                `${this.readConnection.escapeLiteral(chartId)})`,
-            )
-            .join(', ') +
-          ') ' +
-          '  AS "queryValues" ("queryMachineId", "queryChartId") ' +
-          'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" ',
-      );
-    } else {
-      result = await this.readConnection.query<PostgresFullStateRow>(
-        bind(
-          'SELECT ' +
-            this.fullStateEntrySqlSelectFields +
-            'FROM "fullJournalStates" ' +
-            'WHERE TRUE ' +
-            (query.ref !== undefined && query.machineId === undefined
-              ? '  AND "machineId" = :machineId AND "chartId" = :chartId '
-              : '') +
-            (query.parentRef !== undefined
-              ? '  AND "parentMachineId" = :parentMachineId AND "parentChartId" = :parentChartId '
-              : '') +
-            // In case of both machineId and ref, ref takes precedence
-            (query.machineId !== undefined && query.ref === undefined
-              ? '  AND "machineId" = :machineId '
-              : '') +
-            (query.afterId !== undefined
-              ? '  AND "id" > :afterId::bigint '
-              : '') +
-            (query.afterAndIncludingId !== undefined
-              ? '  AND "id" >= :afterAndIncludingId::bigint '
-              : '') +
-            (query.beforeId !== undefined
-              ? '  AND "id" < :beforeId::bigint '
-              : '') +
-            (query.beforeAndIncludingId !== undefined
-              ? '  AND "id" <= :beforeAndIncludingId::bigint '
-              : '') +
-            (query.createdAfterAndIncluding !== undefined
-              ? '  AND "created" >= to_timestamp(:createdAfterAndIncluding::decimal / 1000) '
-              : '') +
-            (query.createdBeforeAndIncluding !== undefined
-              ? '  AND "created" <= to_timestamp(:createdBeforeAndIncluding::decimal / 1000) '
-              : '') +
-            (query.updatedAfterAndIncluding !== undefined
-              ? '  AND "timestamp" >= to_timestamp(:updatedAfterAndIncluding::decimal / 1000)  '
-              : '') +
-            (query.updatedBeforeAndIncluding !== undefined
-              ? '  AND "timestamp" <= to_timestamp(:updatedBeforeAndIncluding::decimal / 1000) '
-              : '') +
-            'ORDER BY "id" ' +
-            (query.order ?? 'ASC') +
-            (query.offset !== undefined ? '  OFFSET :offset' : '') +
-            (query.limit !== undefined ? '  LIMIT :limit' : ''),
-          {
-            machineId: query.ref?.machineId ?? query.machineId,
-            chartId: query.ref?.chartId,
-            parentMachineId: query.parentRef?.machineId,
-            parentChartId: query.parentRef?.chartId,
-            afterId: query.afterId,
-            afterAndIncludingId: query.afterAndIncludingId,
-            beforeId: query.beforeId,
-            beforeAndIncludingId: query.beforeAndIncludingId,
-            createdAfterAndIncluding: query.createdAfterAndIncluding,
-            createdBeforeAndIncluding: query.createdBeforeAndIncluding,
-            updatedAfterAndIncluding: query.updatedAfterAndIncluding,
-            updatedBeforeAndIncluding: query.updatedBeforeAndIncluding,
-            offset: query.offset,
-            limit: query.limit,
-          },
-        ),
-      );
-    }
-
-    return result.rows.map(
-      PostgresJournalPersistenceAdapter.parseSqlFullStateRow,
-    );
-  }
-
-  /**
-   * @returns Number of deleted records
-   */
-  public async deleteByChart(ref: ChartReference): Promise<number> {
-    const fullStateResult = await this.updateConnection.query(
-      bind(
-        'DELETE FROM "fullJournalStates" ' +
-          'WHERE "machineId"=:machineId AND "chartId"=:chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
-    );
-
-    const journalEntryResult = await this.updateConnection.query(
-      bind(
-        'DELETE FROM "journalEntries" ' +
-          'WHERE "machineId"=:machineId AND "chartId"=:chartId',
-        {
-          machineId: ref.machineId,
-          chartId: ref.chartId,
-        },
-      ),
-    );
-
-    return fullStateResult.rowCount + journalEntryResult.rowCount;
-  }
-
-  public async getCurrentTime(): Promise<number> {
-    const result = await this.readConnection.query<{ time: number }>(
-      'SELECT extract(epoch from transaction_timestamp()) * 1000 AS "time"',
-    );
-
-    if (!result.rowCount) {
-      throw new Error('Failed to read current time from database');
-    }
-
-    return Number(result.rows[0].time);
-  }
-
-  static parseSqlJournalRow(row: PostgresJournalRow): JournalEntry {
-    return {
-      id: Number(row.id),
-      timestamp: Number(row.timestamp),
-
-      ref: {
-        machineId: row.machineId,
-        chartId: row.chartId,
-      },
-
-      event: JSON.parse(String(row.event)),
-
-      state: row.state ? JSON.parse(String(row.state)) : null,
-      context: row.context ? JSON.parse(String(row.context)) : null,
-
-      stateDelta: JSON.parse(String(row.stateDelta)),
-      contextDelta: JSON.parse(String(row.contextDelta)),
-      actions: row.actions ? JSON.parse(String(row.actions)) : null,
-    };
-  }
-
-  static parseSqlFullStateRow(row: PostgresFullStateRow): FullStateEntry {
-    return {
-      id: Number(row.id),
-      created: Number(row.created),
-      timestamp: Number(row.timestamp),
-
-      ownerId: row.ownerId,
-
-      ref: {
-        machineId: row.machineId,
-        chartId: row.chartId,
-      },
-
-      parentRef: row.parentChartId
-        ? {
-            machineId: row.parentMachineId,
-            chartId: row.parentChartId,
-          }
-        : null,
-
-      event: JSON.parse(String(row.event)),
-      state: row.state ? JSON.parse(String(row.state)) : null,
-      context: row.context ? JSON.parse(String(row.context)) : null,
-      actions: row.actions ? JSON.parse(String(row.actions)) : null,
     };
   }
 }

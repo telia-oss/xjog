@@ -3,6 +3,7 @@ export * from './ActivityRef';
 export * from './ChartIdentifier';
 export * from './ChartReference';
 export * from './correlationIdentifier';
+export * from './decodeBytea';
 export * from './Logging';
 export * from './LogLevelNames';
 export * from './LogLevels';
