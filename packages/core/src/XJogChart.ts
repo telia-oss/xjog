@@ -1024,150 +1024,27 @@ export class XJogChart<
 
       switch (action.type) {
         case ActionTypes.Send: {
-          await this.xJog.timeExecution(
-            'chart.execute action.send',
-            async () => {
-              const sendAction = action as unknown as SendActionObject<
-                TContext,
-                TEvent
-              >;
-              const delay = sendAction.delay ?? 0;
-
-              const PersistedDeferredEvent: Omit<
-                PersistedDeferredEvent,
-                'id' | 'eventId' | 'timestamp' | 'due'
-              > & {
-                eventId: string | number;
-              } = {
-                ref: this.ref,
-                event: sendAction._event,
-                // TODO what should we send as eventId
-                eventId: sendAction.id ?? randomUUID(),
-                // TODO should we also send actionId and sendId?
-                eventTo: (sendAction.to ?? null) as
-                  | string
-                  | number
-                  | ActivityRef
-                  | null,
-                delay,
-                lock: null,
-              };
-
-              trace({ message: 'Deferring event sending action' });
-              await this.xJog.deferredEventManager.defer(
-                PersistedDeferredEvent,
-                cid,
-              );
-
-              // if (sendAction.to) {
-              //   trace({ message: 'Sending event elsewhere', to: sendAction.to });
-              //   await this.sendTo(
-              //     sendAction.id,
-              //     sendAction._event,
-              //     sendAction.to,
-              //     cid,
-              //   );
-              //
-              //   break;
-              // }
-            },
-          );
+          await this.executeSendAction(action, cid, trace);
           break;
         }
 
         case ActionTypes.Cancel: {
-          await this.xJog.timeExecution(
-            'chart.execute action.cancel',
-            async () => {
-              const sendId = (action as CancelAction<TContext, TEvent>).sendId;
-              trace({ message: 'Canceling event', sendId });
-              await this.xJog.deferredEventManager.cancel(
-                sendId,
-                cid,
-                this.ref,
-              );
-            },
-          );
+          await this.executeCancelAction(action, cid, trace);
           break;
         }
 
         case ActionTypes.Start: {
-          await this.xJog.timeExecution(
-            'chart.execute action.start',
-            async () => {
-              const activity = (
-                action as ActivityActionObject<TContext, TEvent>
-              ).activity as InvokeDefinition<TContext, TEvent>;
-              const activityId = activity.id;
-
-              trace({ message: 'Starting activity', activityId });
-
-              // If the activity will be stopped right after it's started
-              // (such as in transient states) don't bother starting the activity.
-              if (state.activities[activity.id || activity.type]) {
-                // Invoked services
-                if (activity.type === ActionTypes.Invoke) {
-                  trace({ message: 'Invoking service', activityId });
-                  // `id` is not part of the ActivityActionObject type, but
-                  // xstate attaches it at runtime; BaseActionObject keeps the
-                  // permissive index signature that ActionObject had in 4.26.
-                  await this.invokeService(
-                    (action as unknown as BaseActionObject).id,
-                    state,
-                    activity,
-                    cid,
-                  );
-                }
-
-                // Spawn
-                else {
-                  // TODO
-
-                  warn({
-                    message: 'Tried to spawn, not supported yet',
-                    activityId,
-                  });
-
-                  throw new Error(
-                    'You need to use xjog-provided `spawn`, which is not yet available',
-                  );
-
-                  // this.spawnActivity(activity);
-                }
-              }
-            },
-          );
+          await this.executeStartAction(state, action, cid, trace, warn);
           break;
         }
 
         case ActionTypes.Stop: {
-          await this.xJog.timeExecution(
-            'chart.execute action.stop',
-            async () => {
-              const activity = (
-                action as ActivityActionObject<TContext, TEvent>
-              ).activity as InvokeDefinition<TContext, TEvent>;
-
-              trace({ message: 'Stopping activity', id: activity.id });
-              await this.xJog.activityManager.stopActivity(
-                this.ref,
-                activity.id,
-                cid,
-              );
-            },
-          );
+          await this.executeStopAction(action, cid, trace);
           break;
         }
 
         case ActionTypes.Log: {
-          await this.xJog.timeExecution('chart.execute action.log', () => {
-            const { label, value } = action as LogActionObject<
-              TContext,
-              TEvent
-            >;
-            const message = isFunction(value) ? value() : value;
-            this.info(message, { label });
-          });
+          await this.executeLogAction(action);
           break;
         }
 
@@ -1177,6 +1054,129 @@ export class XJogChart<
       }
 
       trace({ message: 'Done' });
+    });
+  }
+
+  private async executeSendAction(
+    action: ActionObject<TContext, TEvent>,
+    cid: string,
+    trace: (...args: Array<string | Record<string, unknown>>) => void,
+  ): Promise<void> {
+    await this.xJog.timeExecution('chart.execute action.send', async () => {
+      const sendAction = action as unknown as SendActionObject<
+        TContext,
+        TEvent
+      >;
+      const delay = sendAction.delay ?? 0;
+
+      const PersistedDeferredEvent: Omit<
+        PersistedDeferredEvent,
+        'id' | 'eventId' | 'timestamp' | 'due'
+      > & {
+        eventId: string | number;
+      } = {
+        ref: this.ref,
+        event: sendAction._event,
+        // TODO what should we send as eventId
+        eventId: sendAction.id ?? randomUUID(),
+        // TODO should we also send actionId and sendId?
+        eventTo: (sendAction.to ?? null) as
+          | string
+          | number
+          | ActivityRef
+          | null,
+        delay,
+        lock: null,
+      };
+
+      trace({ message: 'Deferring event sending action' });
+      await this.xJog.deferredEventManager.defer(PersistedDeferredEvent, cid);
+    });
+  }
+
+  private async executeCancelAction(
+    action: ActionObject<TContext, TEvent>,
+    cid: string,
+    trace: (...args: Array<string | Record<string, unknown>>) => void,
+  ): Promise<void> {
+    await this.xJog.timeExecution('chart.execute action.cancel', async () => {
+      const sendId = (action as CancelAction<TContext, TEvent>).sendId;
+      trace({ message: 'Canceling event', sendId });
+      await this.xJog.deferredEventManager.cancel(sendId, cid, this.ref);
+    });
+  }
+
+  private async executeStartAction(
+    state: State<TContext, TEvent, TStateSchema, TTypeState>,
+    action: ActionObject<TContext, TEvent>,
+    cid: string,
+    trace: (...args: Array<string | Record<string, unknown>>) => void,
+    warn: (...args: Array<string | Record<string, unknown>>) => void,
+  ): Promise<void> {
+    await this.xJog.timeExecution('chart.execute action.start', async () => {
+      const activity = (action as ActivityActionObject<TContext, TEvent>)
+        .activity as InvokeDefinition<TContext, TEvent>;
+      const activityId = activity.id;
+
+      trace({ message: 'Starting activity', activityId });
+
+      // If the activity will be stopped right after it's started
+      // (such as in transient states) don't bother starting the activity.
+      if (state.activities[activity.id || activity.type]) {
+        // Invoked services
+        if (activity.type === ActionTypes.Invoke) {
+          trace({ message: 'Invoking service', activityId });
+          // `id` is not part of the ActivityActionObject type, but
+          // xstate attaches it at runtime; BaseActionObject keeps the
+          // permissive index signature that ActionObject had in 4.26.
+          await this.invokeService(
+            (action as unknown as BaseActionObject).id,
+            state,
+            activity,
+            cid,
+          );
+        }
+
+        // Spawn
+        else {
+          // TODO
+
+          warn({
+            message: 'Tried to spawn, not supported yet',
+            activityId,
+          });
+
+          throw new Error(
+            'You need to use xjog-provided `spawn`, which is not yet available',
+          );
+
+          // this.spawnActivity(activity);
+        }
+      }
+    });
+  }
+
+  private async executeStopAction(
+    action: ActionObject<TContext, TEvent>,
+    cid: string,
+    trace: (...args: Array<string | Record<string, unknown>>) => void,
+  ): Promise<void> {
+    await this.xJog.timeExecution('chart.execute action.stop', async () => {
+      const activity = (action as ActivityActionObject<TContext, TEvent>)
+        .activity as InvokeDefinition<TContext, TEvent>;
+
+      trace({ message: 'Stopping activity', id: activity.id });
+      await this.xJog.activityManager.stopActivity(this.ref, activity.id, cid);
+    });
+  }
+
+  private async executeLogAction(
+    action: ActionObject<TContext, TEvent>,
+  ): Promise<void> {
+    await this.xJog.timeExecution('chart.execute action.log', () => {
+      const { label, value } = action as LogActionObject<TContext, TEvent>;
+      const message = isFunction(value) ? value() : value;
+      this.info(message, { label });
     });
   }
 
@@ -1315,11 +1315,6 @@ export class XJogChart<
       );
     }
 
-    // TODO figure out what this means
-    //  else if (isSpawnedActor(entity)) {
-    //   return this.spawnActor(entity, name);
-    //  }
-
     // Observables
     else if (isObservable<TEvent>(spawnable)) {
       trace({ message: 'Spawning an observable' });
@@ -1329,13 +1324,7 @@ export class XJogChart<
     // Is an unregistered throwaway machine
     else if (isMachine(spawnable)) {
       return await this.spawnUnregisteredMachine(id, spawnable, options);
-    }
-
-    // TODO figure out what this means
-    //  else if (isBehavior(entity)) {
-    //   return this.spawnBehavior(entity, name);
-    //  }
-    else {
+    } else {
       error({
         message: 'Unknown spawnable type',
         spawnableType: typeof spawnable,
@@ -1433,33 +1422,10 @@ export class XJogChart<
 
     let canceled = false;
 
-    // Event listeners registered by the calling site
-    // const receivers = new Set<(event: AnyEventObject) => void>();
-
     // For unsubscribing
     const observers = new Set<Observer<Event<AnyEventObject>>>();
 
     trace({ message: 'Spawning a callback' });
-
-    // const receive: Sender<AnyEventObject> = (event: Event<AnyEventObject>) => {
-    //   if (canceled) {
-    //     return;
-    //   }
-    //
-    //   for (const receiver of receivers) {
-    //     receiver(toEventObject(event));
-    //   }
-    //
-    //   // this.send(
-    //   //   toSCXMLEvent(event as Event<TEvent> | SCXML.Event<TEvent>, {
-    //   //     origin: id,
-    //   //   }),
-    //   //   undefined,
-    //   //   false,
-    //   //   id,
-    //   //   cid,
-    //   // );
-    // };
 
     let initialError: any = null;
     let receiver: ((event: AnyEventObject) => void) | null = null;
@@ -1632,8 +1598,6 @@ export class XJogChart<
       any
     > | null = null;
 
-    // const observers = new Set<Observer<EventObject>>();
-
     const resolvedOptions = {
       sync: false,
       autoForward: false,
@@ -1682,36 +1646,18 @@ export class XJogChart<
             toSCXMLEvent(doneEvent as any, { origin: childService?.id }),
           );
           observer.complete();
-
-          // observer.next(
-          //   toSCXMLEvent(doneEvent as any, { origin: childService?.id }),
-          // );
-          // this.xJog.sendEvent(
-          //   this.ref,
-          //   toSCXMLEvent(doneEvent as any, { origin: childService.id }),
-          //   undefined,
-          //   id,
-          // );
         });
 
         // Stream any events to the actor
         childService.onEvent((event: EventObject) => {
           observer.next(event);
-
-          // for (const observer of observers) {
-          //   observer.next(event);
-          // }
         });
 
         childService.start();
 
-        // const observer = toObserver(onNext, onError, onComplete);
-        // observers.add(observer);
-
         return {
           unsubscribe: () => {
             this.stop();
-            // observers.delete(observer);
           },
         };
       },
