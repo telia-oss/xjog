@@ -1,6 +1,6 @@
 {
   "name": "@telia-oss/xjog-digest-pglite",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Digest package with PGlite backend",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
   "homepage": "https://github.com/telia-oss/xjog",

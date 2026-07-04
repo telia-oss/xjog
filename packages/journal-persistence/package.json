@@ -1,6 +1,6 @@
 {
   "name": "@telia-oss/xjog-journal-persistence",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "XJog chart abstract journal persistence adapter",
   "engines": {
     "npm": ">=8.19.4",
