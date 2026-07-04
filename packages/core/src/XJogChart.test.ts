@@ -1,8 +1,8 @@
 import { ChartOwnershipLostError } from '@samihult/xjog-core-persistence';
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import type { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { Subject } from 'rxjs';
 import { createMachine, interpret, State } from 'xstate';
-
+import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { XJogChart } from './XJogChart';
 import { XJogMachine } from './XJogMachine';
@@ -73,11 +73,15 @@ function buildMockXJog(persistence: PGlitePersistenceAdapter): XJog {
 
 describe('XJogChart: executeActions must run even if changeSubject.next() throws', () => {
   it('Calls executeActions after changeSubject.next() throws', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     // Minimal two-state machine: idle --(go)--> done
     const machine = createMachine({
+      // xstate v4 default; set explicitly on every test machine to silence the
+      // recommendation warning. Left false so these tests keep exercising the
+      // default xstate v4 after-action behavior XJog handles in production.
+      predictableActionArguments: false,
       id: 'bug1-machine',
       initial: 'idle',
       states: {
@@ -106,10 +110,11 @@ describe('XJogChart: executeActions must run even if changeSubject.next() throws
   });
 
   it('Returns the new state even when changeSubject.next() throws', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     const machine = createMachine({
+      predictableActionArguments: false,
       id: 'bug1-machine-return',
       initial: 'idle',
       states: {
@@ -137,10 +142,11 @@ describe('XJogChart: executeActions must run even if changeSubject.next() throws
 
 describe('XJogChart missing after repair', () => {
   it('reconstructs missing after-actions when deferred row is absent', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     const machine = createMachine({
+      predictableActionArguments: false,
       id: 'rehydrate-after-machine',
       initial: 'waiting',
       states: {
@@ -182,11 +188,12 @@ describe('XJogChart missing after repair', () => {
   });
 
   it('executes reconstructed after-actions during runStep even when rehydrate actions are skipped', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
     xJog.options.startup.skipRunningActionsOnRehydrate = true;
 
     const machine = createMachine({
+      predictableActionArguments: false,
       id: 'rehydrate-runstep-machine',
       initial: 'waiting',
       states: {
@@ -223,11 +230,12 @@ describe('XJogChart missing after repair', () => {
   });
 
   it('reconstructs after-action when the delay is a named delay with a numeric entry in machine.options.delays', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     const machine = createMachine(
       {
+        predictableActionArguments: false,
         id: 'named-delay-number-machine',
         initial: 'waiting',
         states: {
@@ -273,11 +281,12 @@ describe('XJogChart missing after repair', () => {
   });
 
   it('reconstructs after-action when the delay resolver is a function of context', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     const machine = createMachine<{ intervalMs: number }>(
       {
+        predictableActionArguments: false,
         id: 'named-delay-function-machine',
         initial: 'waiting',
         context: { intervalMs: 45000 },
@@ -324,10 +333,11 @@ describe('XJogChart missing after repair', () => {
   });
 
   it('does not reconstruct an after-action when the named delay has no matching entry in machine.options.delays', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     const machine = createMachine({
+      predictableActionArguments: false,
       id: 'unresolvable-named-delay-machine',
       initial: 'waiting',
       states: {
@@ -341,7 +351,13 @@ describe('XJogChart missing after repair', () => {
     });
 
     const xJogMachine = new XJogMachine(xJog, machine);
+    // Starting this machine makes xstate warn that the named delay
+    // 'check interval' has no matching entry in machine.options.delays — which
+    // is precisely the condition under test. Suppress the expected warning so
+    // it doesn't pollute the test output.
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const service = interpret(machine).start();
+    warnSpy.mockRestore();
     const resolvedState = machine.resolveState(
       State.create(JSON.parse(JSON.stringify(service.state))),
     );
@@ -369,7 +385,7 @@ describe('XJogChart missing after repair', () => {
 
 describe('XJogChart: named delay on re-entry after parallel onDone', () => {
   it('re-schedules the named after-timer with the resolved numeric delay on the second entry into waiting', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     // Simplified reproduction of the poll-machine shape we see in production:
@@ -381,6 +397,7 @@ describe('XJogChart: named delay on re-entry after parallel onDone', () => {
     // resolved to 60000 via machine.options.delays.
     const machine = createMachine(
       {
+        predictableActionArguments: false,
         id: 'poll',
         initial: 'idle',
         states: {
@@ -469,10 +486,11 @@ describe('XJogChart: named delay on re-entry after parallel onDone', () => {
 
 describe('XJogChart: ownership fencing on state writes', () => {
   it('refuses to overwrite a chart another instance owns and evicts it from the cache', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = buildMockXJog(persistence);
 
     const machine = createMachine({
+      predictableActionArguments: false,
       id: 'fencing-machine',
       initial: 'idle',
       states: {

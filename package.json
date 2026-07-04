@@ -7,23 +7,29 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "watch-all": "lerna run build && lerna watch -- lerna run build --since",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "watch-all": "turbo run build && pnpm -r --parallel exec tsc --watch --preserveWatchOutput",
     "lint": "pnpm exec biome ci .",
     "lint:fix": "pnpm exec biome check --write .",
-    "format": "pnpm exec biome format --write ."
+    "format": "pnpm exec biome format --write .",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build && changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
+    "@changesets/cli": "^2.31.0",
     "@swc/cli": "^0.8.1",
-    "@swc/core": "^1.15.41",
+    "@swc/core": "^1.15.43",
     "@swc/jest": "^0.2.39",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.9.4",
     "cpx-fixed": "^1.6.0",
     "jest": "^30.4.2",
-    "lerna": "9.0.7",
     "rxjs": "^7.8.2",
     "ts-node": "^10.9.2",
+    "turbo": "^2.10.2",
     "typescript": "^4.9.5"
   }
 }

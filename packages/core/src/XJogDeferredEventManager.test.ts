@@ -3,9 +3,9 @@ import {
   type PersistenceAdapter,
 } from '@samihult/xjog-core-persistence';
 
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { waitFor } from '@samihult/xjog-util';
 import { toSCXMLEvent } from 'xstate/lib/utils';
+import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { XJogDeferredEventManager } from './XJogDeferredEventManager';
 import type { ResolvedXJogOptions } from './XJogOptions';
@@ -80,7 +80,7 @@ describe('XJogDeferredEventManager', () => {
     // Withing the first read window
     const delay = 5;
 
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
       persistence,
       {
@@ -131,7 +131,7 @@ describe('XJogDeferredEventManager', () => {
     // Withing the first read window
     const delay = 10;
 
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
       persistence,
       {
@@ -214,7 +214,7 @@ describe('XJogDeferredEventManager', () => {
     // Withing the second read window (then+lookahead)
     const delay = 25;
 
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
       persistence,
       {
@@ -292,7 +292,7 @@ describe('XJogDeferredEventManager', () => {
     // Withing the first read window
     const delay = 25;
 
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
       persistence,
       {
@@ -356,7 +356,7 @@ describe('XJogDeferredEventManager', () => {
     // Withing the first read window
     const delay = 25;
 
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
       persistence,
       {

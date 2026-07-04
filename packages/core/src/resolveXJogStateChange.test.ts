@@ -8,6 +8,9 @@ import {
 type Ctx = { count: number; blob: { nested: number[] } };
 
 const machine = createMachine<Ctx>({
+  // xstate v4 default; set explicitly to silence the recommendation warning
+  // without changing behavior.
+  predictableActionArguments: false,
   id: 'test',
   initial: 'a',
   context: { count: 0, blob: { nested: [1, 2, 3] } },

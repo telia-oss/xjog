@@ -1,6 +1,5 @@
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { createMachine } from 'xstate';
-
+import { connectTestPersistence } from './pglite.testutil';
 import { XJog } from './XJog';
 
 /**
@@ -22,6 +21,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
 }
 
 const machine = createMachine({
+  // xstate v4 default; set explicitly to silence the recommendation warning
+  // without changing behavior.
+  predictableActionArguments: false,
   id: 'shutdown-machine',
   initial: 'idle',
   states: {
@@ -32,7 +34,7 @@ const machine = createMachine({
 
 describe('XJog.shutdown: lone instance must not hang', () => {
   it('resolves and emits halt even while owning charts with no successor', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = new XJog({ persistence });
 
     const xJogMachine = await xJog.registerMachine(machine);
@@ -59,7 +61,7 @@ describe('XJog.shutdown: lone instance must not hang', () => {
 
 describe('XJog live handoff: rolling deploy between two instances', () => {
   it('boots beside a serving sibling without disturbing it, then adopts its charts when it drains', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
 
     const fastReconcile = {
       startup: { adoptionFrequency: 50, gracePeriod: 200 },
@@ -101,7 +103,7 @@ describe('XJog live handoff: rolling deploy between two instances', () => {
 
 describe('XJog.shutdown: reconciler must stop', () => {
   it('stops the adoption reconciler so a dying instance cannot re-claim charts', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = new XJog({
       persistence,
       startup: { adoptionFrequency: 50, gracePeriod: 200 },
@@ -121,7 +123,7 @@ describe('XJog.shutdown: reconciler must stop', () => {
 
 describe('XJog.shutdown: bounded adoption wait (adoptionTimeout)', () => {
   it('proceeds to halt after adoptionTimeout when no one adopts the charts', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = new XJog({
       persistence,
       shutdown: { adoptionTimeout: 300, ownChartPollingFrequency: 50 },

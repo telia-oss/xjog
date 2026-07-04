@@ -1,6 +1,5 @@
 import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
-
+import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { XJogStartupManager } from './XJogStartupManager';
 
@@ -34,7 +33,7 @@ async function waitFor(milliseconds: number): Promise<void> {
 
 describe('XJogStartupManager', () => {
   it('Is initially idle, not started and not finished', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     expect(startupManager.started).toBe(false);
@@ -42,7 +41,7 @@ describe('XJogStartupManager', () => {
   });
 
   it('Become ready right after the startup sequence when nothing to adopt', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     await startupManager.start();
@@ -55,7 +54,7 @@ describe('XJogStartupManager', () => {
   });
 
   it('Executes the right routines during the startup', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     jest.spyOn(persistence, 'registerInstance');
@@ -133,7 +132,7 @@ describe('XJogStartupManager: live handoff', () => {
   }
 
   it('Boot leaves a live sibling and its charts untouched', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     await seedInstance(persistence, 'sibling');
@@ -155,7 +154,7 @@ describe('XJogStartupManager: live handoff', () => {
   });
 
   it('Reconciler adopts charts paused by a departing sibling after readiness', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
 
     const runStep = jest.fn().mockResolvedValue(undefined);
@@ -178,7 +177,7 @@ describe('XJogStartupManager: live handoff', () => {
   });
 
   it('Reconciler marks a stale sibling dying and adopts its charts', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
     (xJog as any).options.startup.instanceStaleness = 50;
 
@@ -205,7 +204,7 @@ describe('XJogStartupManager: live handoff', () => {
   });
 
   it('Reconciler heartbeats the own instance row', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     await startupManager.start();
@@ -234,7 +233,7 @@ describe('XJogStartupManager: live handoff', () => {
 
 describe('XJogStartupManager: grace period timer must not reset on every cycle', () => {
   it('Does not restart the grace period timer when it is already running', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     // @ts-expect-error Private access
@@ -266,7 +265,7 @@ describe('XJogStartupManager: grace period timer must not reset on every cycle',
   });
 
   it('Starts the grace period timer on the first adoption cycle when charts remain', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, startupManager] = mockXJogWithStartupManager(persistence);
 
     // @ts-expect-error Private access
@@ -292,7 +291,7 @@ describe('XJogStartupManager: grace period timer must not reset on every cycle',
 
 describe('XJogStartupManager.startAdoptedCharts: missing-after-timer repair', () => {
   it('calls runStep on each adopted chart even when skipRunningActionsOnRehydrate=true', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
 
     xJog.options.startup.skipRunningActionsOnRehydrate = true;
@@ -314,7 +313,7 @@ describe('XJogStartupManager.startAdoptedCharts: missing-after-timer repair', ()
   });
 
   it('still calls runStep when skipRunningActionsOnRehydrate=false (unchanged behavior)', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
 
     xJog.options.startup.skipRunningActionsOnRehydrate = false;
@@ -335,7 +334,7 @@ describe('XJogStartupManager.startAdoptedCharts: missing-after-timer repair', ()
 
 describe('XJogStartupManager.startAdoptedCharts: per-chart error isolation', () => {
   it('continues adopting remaining charts when getChart throws on one', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
 
     const runStep = jest.fn().mockResolvedValue(undefined);
@@ -363,7 +362,7 @@ describe('XJogStartupManager.startAdoptedCharts: per-chart error isolation', () 
   });
 
   it('continues adopting remaining charts when runStep throws on one', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
 
     const healthyRunStep = jest.fn().mockResolvedValue(undefined);
@@ -389,7 +388,7 @@ describe('XJogStartupManager.startAdoptedCharts: per-chart error isolation', () 
   });
 
   it('logs an error for each chart that fails to adopt', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, startupManager] = mockXJogWithStartupManager(persistence);
 
     const errorSpy = jest.fn();

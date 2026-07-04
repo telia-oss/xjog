@@ -1,6 +1,8 @@
 # Development
 
-This is a monorepo managed using pnpm workspaces and lerna.
+This is a monorepo managed using pnpm workspaces. Build and test tasks are orchestrated
+by [Turborepo](https://turborepo.com) (task graph + caching in `turbo.json`), and
+versioning and publishing go through [Changesets](https://github.com/changesets/changesets).
 
 Prerequisites:
 
@@ -20,10 +22,10 @@ pnpm install
 After this you can run commands like this from the root directory:
 
 ```bash
-pnpm lerna run clean
-pnpm lerna run build
-pnpm lerna run lint --scope @samihult/xjog
-pnpm lerna exec -- cat package.json | jq '.license'
+pnpm -r run clean
+pnpm run build                                  # turbo run build (cached, graph-ordered)
+pnpm exec turbo run build --filter @samihult/xjog
+pnpm --filter @samihult/xjog run lint
 ```
 
 To get started with development, build and watch from the root level.
@@ -45,15 +47,23 @@ All ALPHA versions should be `0.0.x` and BETA versions `0.x.y`.
 XJog can be graduated to beta once there is a comprehensive test set and
 sufficient documentation.
 
-There are two main ways of versioning and publishing:
+Versioning and publishing go through Changesets. As part of every PR that changes a
+published package, add a changeset describing the change:
 
 ```bash
-# Version and publish in one go
-pnpm lerna publish
+pnpm changeset
+```
 
-# Version and publish separately
-pnpm lerna version
-pnpm lerna publish from-package
+Select the affected packages and the bump level, write a short summary, and commit
+the generated file in `.changeset/` alongside your code. While in alpha, keep bumps as
+`patch` so versions stay `0.0.x`.
+
+To cut a release (maintainers):
+
+```bash
+pnpm version-packages   # consume pending changesets: bump versions + write changelogs
+pnpm install            # refresh the lockfile after the bumps
+pnpm release            # build all packages, then publish the changed ones + git tags
 ```
 
 While in alpha, packages will be pushed to GitHub packages under the `@samihult` namespace. At graduation, the namespace
@@ -96,7 +106,7 @@ effort on writing E2E tests.
 To run all unit tests:
 
 ```bash
-pnpm lerna run test
+pnpm run test
 ```
 
 B) End-to-end tests (E2E)

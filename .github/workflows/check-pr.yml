@@ -46,11 +46,19 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
 
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Run build
-        run: pnpm lerna run build
+        run: pnpm exec turbo run build
 
       - name: Run lint
-        run: pnpm lerna run lint
+        run: pnpm -r run lint
 
       - name: Run tests
-        run: pnpm lerna run test
+        run: pnpm exec turbo run test

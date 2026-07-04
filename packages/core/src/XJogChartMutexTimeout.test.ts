@@ -1,5 +1,6 @@
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import { createMachine } from 'xstate';
+
+import { connectTestPersistence } from './pglite.testutil';
 
 import { XJog } from './XJog';
 
@@ -21,6 +22,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
 }
 
 const machine = createMachine({
+  // xstate v4 default; set explicitly to silence the recommendation warning
+  // without changing behavior.
+  predictableActionArguments: false,
   id: 'mutex-timeout-machine',
   initial: 'idle',
   states: {
@@ -32,7 +36,7 @@ const machine = createMachine({
 
 describe('XJogChart mutex acquire timeout', () => {
   it('fails the blocked operation without shutting down the engine', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const xJog = new XJog({ persistence, chartMutexTimeout: 150 });
 
     const xJogMachine = await xJog.registerMachine(machine);

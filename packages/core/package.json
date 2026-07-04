@@ -23,7 +23,7 @@
 	],
 	"scripts": {
 		"build": "pnpm exec tsc",
-		"test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest --config jestconfig.js --passWithNoTests",
+		"test": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' pnpm exec jest --config jestconfig.js --passWithNoTests",
 		"lint": "pnpm exec biome ci .",
 		"lint:fix": "pnpm exec biome check --write .",
 		"format": "pnpm exec biome format --write .",

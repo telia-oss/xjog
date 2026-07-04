@@ -20,7 +20,7 @@
     "format": "pnpm exec biome format --write .",
     "build:files": "pnpm exec cpx-fixed 'src/**/*.sql' lib",
     "clean": "rm -rf node_modules lib",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest"
+    "test": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' pnpm exec jest"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",

@@ -1,5 +1,5 @@
 import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { type SimulatorRule, XJogSimulator } from './XJogSimulator';
 
@@ -30,7 +30,7 @@ describe('XJogSimulator', () => {
   let simulator: XJogSimulator;
 
   beforeEach(async () => {
-    persistence = await PGlitePersistenceAdapter.connect();
+    persistence = await connectTestPersistence();
     [, simulator] = mockXJogWithSimulator(persistence);
   });
 
