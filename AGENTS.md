@@ -47,7 +47,7 @@ The monorepo follows a layered adapter pattern:
 
 - **core** (`@telia-oss/xjog`): Main engine — `XJog` orchestrates lifecycle, `XJogMachine` wraps registered statecharts, `XJogChart` manages individual chart instances. Uses `async-mutex` for chart-level locking and RxJS for streaming state changes.
 - **util** (`@telia-oss/xjog-util`): Shared logging (`XJogLogEmitter` extends `EventEmitter`), types, helpers.
-- **core-persistence** / **core-pg** / **core-pglite** / **core-sqlite**: Abstract persistence adapter + concrete implementations. Each adapter handles SQL migrations from `src/migrations/*.sql` files.
+- **core-persistence** / **core-pg** / **core-pglite**: Abstract persistence adapter + concrete implementations. Each adapter handles SQL migrations from `src/migrations/*.sql` files.
 - **journal-*** and **digest-***: Separate persistence/reader/writer packages for journal and digest subsystems, following the same abstract+concrete pattern.
 
 Each package: source in `src/`, compiles to `lib/`, has its own `tsconfig.json` extending root, and excludes `*.test.*` from compilation. Build uses `tsc` directly, tests use `@swc/jest` for speed.
@@ -55,7 +55,7 @@ Each package: source in `src/`, compiles to `lib/`, has its own `tsconfig.json` 
 ### Key dependency flow
 ```
 core → core-persistence → util
-core-pg / core-pglite / core-sqlite → core-persistence → util
+core-pg / core-pglite → core-persistence → util
 journal-writer / journal-reader → journal-persistence → util
 digest-writer / digest-reader → digest-persistence → util
 ```
