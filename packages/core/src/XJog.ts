@@ -23,7 +23,7 @@ import {
   type StateSchema,
   type Typestate,
 } from 'xstate';
-import { isPromiseLike, toSCXMLEvent } from 'xstate/lib/utils';
+import { toSCXMLEvent } from 'xstate/lib/utils';
 import { XJogActivityManager } from './XJogActivityManager';
 import type { XJogChart } from './XJogChart';
 import { XJogDeferredEventManager } from './XJogDeferredEventManager';
@@ -34,6 +34,7 @@ import {
   resolveXJogOptions,
   type XJogOptions,
 } from './XJogOptions';
+import { XJogProfiler } from './XJogProfiler';
 import { XJogSimulator } from './XJogSimulator';
 import { XJogStartupManager } from './XJogStartupManager';
 
@@ -122,6 +123,12 @@ export class XJog extends XJogLogEmitter {
   public readonly activityManager: XJogActivityManager;
 
   /**
+   * Tracks execution durations for profiling purposes.
+   * @private
+   */
+  private readonly profiler: XJogProfiler;
+
+  /**
    * @param options Options
    */
   constructor(options: XJogOptions) {
@@ -135,6 +142,7 @@ export class XJog extends XJogLogEmitter {
     this.deferredEventManager = new XJogDeferredEventManager(this);
     this.activityManager = new XJogActivityManager(this);
     this.simulator = new XJogSimulator(this);
+    this.profiler = new XJogProfiler(this.options.profiling.enabled);
 
     this.trace('Instance created', {
       instanceId: this.id,
@@ -624,71 +632,8 @@ export class XJog extends XJogLogEmitter {
     });
   }
 
-  // TODO vvv Move these to a monitoring class of its of own. vvv
-
-  private executionDurationHistogramBase = 2;
-  private executionDurationHistogramBuckets = 16;
-
-  private executionDurationHistogramBaseLog = Math.log(
-    this.executionDurationHistogramBase,
-  );
-
-  private executionDurationHistogramBucketCeilingValues = [
-    ...new Array(this.executionDurationHistogramBuckets),
-  ].map((value, index) => this.executionDurationHistogramBase ** index);
-
-  private executionTimes: { [op: string]: number } = {};
-  private executionDurationHistograms: { [op: string]: number[] } = {};
-
-  private getExecutionDurationHistogram(op: string): number[] {
-    if (!this.executionDurationHistograms[op]) {
-      this.executionDurationHistograms[op] = new Array(
-        this.executionDurationHistogramBuckets,
-      ).fill(0);
-    }
-
-    return this.executionDurationHistograms[op];
-  }
-
-  // TODO make option to enable this separately
-  private recordExecutionDuration(op: string, duration: number) {
-    let bucket;
-
-    const ceilingDuration = Math.ceil(duration);
-
-    if (ceilingDuration <= 0) {
-      bucket = 0;
-    } else {
-      bucket = Math.ceil(
-        Math.log(ceilingDuration) / this.executionDurationHistogramBaseLog,
-      );
-    }
-
-    if (bucket >= this.executionDurationHistogramBuckets) {
-      bucket = this.executionDurationHistogramBuckets;
-    }
-
-    this.getExecutionDurationHistogram(op)[bucket]++;
-    this.executionTimes[op] = (this.executionTimes[op] ?? 0) + duration;
-  }
-
   public timeExecution<T>(op: string, routine: () => T): T {
-    // TODO allow enable per options
-
-    const startTime = performance.now();
-    const returnValue = routine();
-
-    const done = () =>
-      this.recordExecutionDuration(op, performance.now() - startTime);
-
-    if (isPromiseLike(returnValue)) {
-      // @ts-expect-error Trust that it has `finally`
-      return returnValue.finally(done) as unknown as T;
-    }
-
-    done();
-
-    return returnValue;
+    return this.profiler.timeExecution(op, routine);
   }
 
   public getProfilingMetrics(): {
@@ -701,26 +646,7 @@ export class XJog extends XJogLogEmitter {
       };
     };
   } {
-    return {
-      buckets: this.executionDurationHistogramBucketCeilingValues,
-      executions: Object.keys(this.executionDurationHistograms)
-        .sort()
-        .reduce((entry, key) => {
-          const histogram = this.executionDurationHistograms[key];
-
-          const count = histogram.reduce((sum, bucket) => sum + bucket, 0);
-          const total = this.executionTimes[key];
-
-          return {
-            ...entry,
-            [key]: {
-              count,
-              total,
-              histogram,
-            },
-          };
-        }, {}),
-    };
+    return this.profiler.getProfilingMetrics();
   }
 
   /**
