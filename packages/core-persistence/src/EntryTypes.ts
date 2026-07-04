@@ -1,4 +1,4 @@
-import type { ActivityRef, ChartReference } from '@samihult/xjog-util';
+import type { ActivityRef, ChartReference } from '@telia-oss/xjog-util';
 import type { EventObject, SCXML, StateConfig } from 'xstate';
 
 /**

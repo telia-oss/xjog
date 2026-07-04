@@ -1,4 +1,4 @@
-import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
+import type { PersistenceAdapter } from '@telia-oss/xjog-core-persistence';
 import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { type SimulatorRule, XJogSimulator } from './XJogSimulator';

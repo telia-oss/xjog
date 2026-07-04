@@ -2,7 +2,7 @@ import {
   type ActivityRef,
   type ChartReference,
   getCorrelationIdentifier,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
 import type { Event, EventObject, SCXML, Subscription } from 'xstate';
 import * as actions from 'xstate/lib/actions';

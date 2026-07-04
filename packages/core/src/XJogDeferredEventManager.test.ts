@@ -1,9 +1,9 @@
 import {
   ChartOwnershipLostError,
   type PersistenceAdapter,
-} from '@samihult/xjog-core-persistence';
+} from '@telia-oss/xjog-core-persistence';
 
-import { waitFor } from '@samihult/xjog-util';
+import { waitFor } from '@telia-oss/xjog-util';
 import { toSCXMLEvent } from 'xstate/lib/utils';
 import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';

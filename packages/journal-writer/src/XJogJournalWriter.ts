@@ -1,6 +1,6 @@
-import type { XJog } from '@samihult/xjog';
-import type { JournalPersistenceAdapter } from '@samihult/xjog-journal-persistence';
-import { XJogLogEmitter, type XJogStateChange } from '@samihult/xjog-util';
+import type { XJog } from '@telia-oss/xjog';
+import type { JournalPersistenceAdapter } from '@telia-oss/xjog-journal-persistence';
+import { XJogLogEmitter, type XJogStateChange } from '@telia-oss/xjog-util';
 
 import type { XJogJournalWriterOptions } from './XJogJournalWriterOptions';
 import type { XJogJournalWriterResolvedOptions } from './XJogJournalWriterResolvedOptions';

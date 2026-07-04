@@ -1,7 +1,7 @@
 import {
   AbstractPersistenceAdapter,
   type ChartReference,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import { Subject } from 'rxjs';
 import type { DigestEntries } from './DigestEntries';
 import type { DigestEntry } from './DigestEntry';

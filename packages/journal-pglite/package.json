@@ -1,5 +1,5 @@
 {
-  "name": "@samihult/xjog-journal-pglite",
+  "name": "@telia-oss/xjog-journal-pglite",
   "version": "0.1.0",
   "description": "> TODO: description",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.5",
-    "@samihult/xjog-journal-persistence": "workspace:^",
-    "@samihult/xjog-util": "workspace:^",
+    "@telia-oss/xjog-journal-persistence": "workspace:^",
+    "@telia-oss/xjog-util": "workspace:^",
     "node-pg-migrate": "^6.2.1",
     "xstate": "4.38.3"
   },

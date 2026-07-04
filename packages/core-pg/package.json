@@ -1,5 +1,5 @@
 {
-	"name": "@samihult/xjog-core-pg",
+	"name": "@telia-oss/xjog-core-pg",
 	"version": "0.1.0",
 	"description": "XJog chart Postgres persistence",
 	"engines": {
@@ -32,8 +32,8 @@
 		"format": "pnpm exec biome format --write ."
 	},
 	"dependencies": {
-		"@samihult/xjog-core-persistence": "workspace:^",
-		"@samihult/xjog-util": "workspace:^",
+		"@telia-oss/xjog-core-persistence": "workspace:^",
+		"@telia-oss/xjog-util": "workspace:^",
 		"node-pg-migrate": "^6.2.1",
 		"pg": "^8.21.0",
 		"pg-bind": "^1.0.1",

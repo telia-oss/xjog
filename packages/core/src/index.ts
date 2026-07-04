@@ -1,6 +1,6 @@
 // Re-exported so consumers can catch ownership loss from chart.send()
 // without depending on xjog-core-persistence directly.
-export { ChartOwnershipLostError } from '@samihult/xjog-core-persistence';
+export { ChartOwnershipLostError } from '@telia-oss/xjog-core-persistence';
 export { State } from 'xstate';
 
 export * from './XJog';

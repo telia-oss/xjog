@@ -6,8 +6,8 @@ import {
   DigestPersistenceAdapter,
   type DigestQuery,
   type Expression,
-} from '@samihult/xjog-digest-persistence';
-import type { ChartReference } from '@samihult/xjog-util';
+} from '@telia-oss/xjog-digest-persistence';
+import type { ChartReference } from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import { Client, Pool, type PoolConfig } from 'pg';
 import bind from 'pg-bind';

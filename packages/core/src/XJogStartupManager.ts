@@ -1,7 +1,7 @@
 import {
   type ChartReference,
   getCorrelationIdentifier,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import type { XJog } from './XJog';
 import type { ResolvedXJogOptions } from './XJogOptions';
 

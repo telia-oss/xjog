@@ -1,4 +1,4 @@
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { PGlitePersistenceAdapter } from '@telia-oss/xjog-core-pglite';
 
 /**
  * Test-only helper for PGlite-backed persistence.

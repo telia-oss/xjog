@@ -1,6 +1,6 @@
 # Releasing
 
-XJog is published as 15 independently-versioned packages under the `@samihult/*`
+XJog is published as 15 independently-versioned packages under the `@telia-oss/*`
 scope, to Telia's **JFrog Artifactory** npm repository (`ecom-npm-local`), driven
 by [Changesets](https://github.com/changesets/changesets).
 
@@ -8,7 +8,7 @@ Publishing goes to JFrog from **any branch** — the registry is pinned two ways
 
 - **`publishConfig.registry`** in every package's `package.json` — the publish
   target.
-- **`@samihult:registry`** in the repo `.npmrc` — so Changesets' "is this version
+- **`@telia-oss:registry`** in the repo `.npmrc` — so Changesets' "is this version
   already published?" check queries JFrog too (without it, the check hits npmjs,
   wrongly concludes the version is new, and then fails on a duplicate).
 
@@ -58,7 +58,7 @@ pnpm -r publish --dry-run --no-git-checks
 # 4. PUBLISH — build, then publish versions not yet on JFrog.
 pnpm release                          # = turbo run build && changeset publish
 
-# 5. push the git tags Changesets created (e.g. @samihult/xjog@0.1.1):
+# 5. push the git tags Changesets created (e.g. @telia-oss/xjog@0.2.0):
 git push origin --tags
 ```
 
@@ -85,15 +85,15 @@ exists on JFrog. Almost always:
    version to publish again (you can't overwrite an existing version).
 
 **Check where a version actually lives** (a scope override is required — a bare
-`--registry` is ignored for scoped packages because `@samihult:registry` in
+`--registry` is ignored for scoped packages because `@telia-oss:registry` in
 `.npmrc` wins):
 
 ```bash
 # On JFrog?
-npm view @samihult/xjog@0.1.1 version \
-  --@samihult:registry=https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/
+npm view @telia-oss/xjog@0.2.0 version \
+  --@telia-oss:registry=https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/
 
 # On public npmjs? (should always 404 — these are private)
-npm view @samihult/xjog@0.1.1 version \
-  --@samihult:registry=https://registry.npmjs.org
+npm view @telia-oss/xjog@0.2.0 version \
+  --@telia-oss:registry=https://registry.npmjs.org
 ```

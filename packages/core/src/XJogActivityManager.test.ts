@@ -1,5 +1,5 @@
-import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import type { ActivityRef } from '@samihult/xjog-util';
+import type { PersistenceAdapter } from '@telia-oss/xjog-core-persistence';
+import type { ActivityRef } from '@telia-oss/xjog-util';
 import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { XJogActivityManager } from './XJogActivityManager';

@@ -1,5 +1,5 @@
-import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import { pickIntegerOption } from '@samihult/xjog-util';
+import type { PersistenceAdapter } from '@telia-oss/xjog-core-persistence';
+import { pickIntegerOption } from '@telia-oss/xjog-util';
 
 /**
  * @group XJog

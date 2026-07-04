@@ -4,8 +4,8 @@ import type {
   JournalEntry,
   JournalPersistenceAdapter,
   JournalQuery,
-} from '@samihult/xjog-journal-persistence';
-import { nullSafeApplyJsonDiff, XJogLogEmitter } from '@samihult/xjog-util';
+} from '@telia-oss/xjog-journal-persistence';
+import { nullSafeApplyJsonDiff, XJogLogEmitter } from '@telia-oss/xjog-util';
 import { concat, concatMap, from, type Observable } from 'rxjs';
 import type { EventObject } from 'xstate';
 

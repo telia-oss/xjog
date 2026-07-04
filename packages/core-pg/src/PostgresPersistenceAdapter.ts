@@ -3,12 +3,12 @@ import {
   type PersistedChart,
   type PersistedDeferredEvent,
   PersistenceAdapter,
-} from '@samihult/xjog-core-persistence';
+} from '@telia-oss/xjog-core-persistence';
 import {
   ChartIdentifier,
   type ChartReference,
   getCorrelationIdentifier,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import { type ClientConfig, Pool, type PoolClient, type PoolConfig } from 'pg';
 import bind from 'pg-bind';

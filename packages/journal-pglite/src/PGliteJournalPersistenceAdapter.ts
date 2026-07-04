@@ -8,11 +8,11 @@ import {
   type JournalEntryInsertFields,
   JournalPersistenceAdapter,
   type JournalQuery,
-} from '@samihult/xjog-journal-persistence';
+} from '@telia-oss/xjog-journal-persistence';
 import type {
   ChartReference,
   XJogStateChangeAction,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import type { EventObject, StateValue } from 'xstate';
 import type { PGliteFullStateRow } from './PGliteFullStateRow';

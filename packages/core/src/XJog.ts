@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
+import type { PersistenceAdapter } from '@telia-oss/xjog-core-persistence';
 import {
   type ActivityRef,
   ChartIdentifier,
@@ -10,7 +10,7 @@ import {
   waitFor,
   XJogLogEmitter,
   type XJogStateChange,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import { from, type Observable, Subject } from 'rxjs';
 import {
   type DefaultContext,
