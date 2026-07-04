@@ -43,7 +43,7 @@ git pull
 
 # 1. Ensure a changeset describing the release exists (normally committed with
 #    the PRs). If not, add one:
-pnpm changeset                        # keep bumps `patch` during alpha
+pnpm changeset                        # minor for features, patch for fixes (beta)
 
 # 2. VERSION — consume changesets: bump package.json versions + write CHANGELOGs.
 #    This is the step people skip. Without it, versions don't move and step 4
@@ -70,7 +70,8 @@ git push origin --tags
   published as private, correct for an internal Artifactory repo.
 - **Workspace deps** (`workspace:^`) are rewritten to real version ranges by pnpm
   at publish time — no manual step.
-- **Alpha versioning:** keep bumps `patch` so versions stay `0.1.x`.
+- **Beta versioning:** `minor` for new features, `patch` for fixes; versions stay
+  `0.x.y` until a `1.0` release.
 
 ## Troubleshooting
 

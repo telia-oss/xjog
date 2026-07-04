@@ -42,10 +42,9 @@ Please follow the semantic versioning:
 - New features &rarr; minor version
 - Fixes, documentation &rarr; patch version
 
-All ALPHA versions should be `0.0.x` and BETA versions `0.x.y`.
-
-XJog can be graduated to beta once there is a comprehensive test set and
-sufficient documentation.
+Alpha versions are `0.0.x`; beta versions are `0.x.y`. XJog is currently in
+**beta** (`0.2.0`). It can graduate to `1.0` once the API and database schema
+are considered stable.
 
 Versioning and publishing go through Changesets. As part of every PR that changes a
 published package, add a changeset describing the change:
@@ -55,8 +54,8 @@ pnpm changeset
 ```
 
 Select the affected packages and the bump level, write a short summary, and commit
-the generated file in `.changeset/` alongside your code. While in alpha, keep bumps as
-`patch` so versions stay `0.0.x`.
+the generated file in `.changeset/` alongside your code. During beta, use `minor`
+for new features and `patch` for fixes; versions stay `0.x.y` until a `1.0` release.
 
 To cut a release, maintainers run `pnpm version-packages` (consume changesets +
 bump) and then `pnpm release` (build + publish) from `main`. Packages publish to
@@ -65,8 +64,8 @@ the `@telia-oss:registry` entry in `.npmrc`. The full runbook — auth and
 troubleshooting the "already published / nothing to publish" case — is in
 [releasing.md](./releasing.md).
 
-Publishing is manual during alpha and requires a JFrog auth token in your
-`~/.npmrc` (never committed). See [releasing.md](./releasing.md) for details.
+Publishing is manual and requires a JFrog auth token in your `~/.npmrc` (never
+committed). See [releasing.md](./releasing.md) for details.
 
 ## Issues and branching
 
@@ -89,36 +88,30 @@ away from that.
 
 ## Running tests
 
-XJog has undergone a large-scale refactoring to multiple smaller packages and testing framework needs to be rewritten as
-well. The idea is to have two kinds of tests:
-
-A) Unit tests
-
-In XJog unit tests are going to be a minority. Only write unit tests where you can extract a functional part that has no
-external effects. For example, a simple function that transforms or filters data. For anything more complex, spend your
-effort on writing E2E tests.
-
-To run all unit tests:
+Tests run through Turborepo and Jest (with `@swc/jest` for fast transpilation):
 
 ```bash
-pnpm run test
+pnpm run test                                      # all packages (turbo run test)
+pnpm exec turbo run test --filter @telia-oss/xjog  # a single package
 ```
 
-B) End-to-end tests (E2E)
+CI runs the same suite on every PR (`.github/workflows/check-pr.yml`).
 
-With end-to-end, the whole stack including the persistence layer, is active. These tests are the most important ones,
-since XJog is sensitive to database idiosyncrasies. Also the XJog's lifecycle functionalities play a crucial part in
-making everything run reliably and smooth.
+Two kinds of tests, co-located as `<Name>.test.ts`:
 
-### Current state of affairs
+- **Unit tests** — for pure, side-effect-free logic (e.g. a function that
+  transforms or filters data). The minority.
+- **End-to-end tests** — exercise the full stack, persistence included, against an
+  in-process **PGlite** database (no external DB required). These matter most:
+  XJog is sensitive to database idiosyncrasies, and its lifecycle behaviour
+  (recovery, handoff, deferred events) is where the risk lives. Prefer these over
+  unit tests for anything with external effects.
 
-Presently, no runnable tests. A rudimentary set of test cases can be found under `tests-int` and `tests-e2e` though.
+Run a single test file or pattern from within a package directory:
 
-Integration tests were a set of tests that used a mock adapter, but the upkeep cost of a mock adapter is high. They had
-their benefits at the early stages of development, but should be converted to E2E tests now.
-
-Testing should be activated. See the following issues:
-
-- [#9 Bring back unit tests](https://github.com/telia-oss/xjog/issues/9)
-- [#10 Re-establish E2E tests](https://github.com/telia-oss/xjog/issues/10)
+```bash
+cd packages/core
+NODE_OPTIONS='--experimental-vm-modules' jest --config jestconfig.js src/XJogChart.test.ts
+NODE_OPTIONS='--experimental-vm-modules' jest --config jestconfig.js -t "test name pattern"
+```
 
