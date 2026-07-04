@@ -50,6 +50,13 @@ export type XJogOptions = {
      */
     adoptionTimeout?: number;
   };
+  profiling?: {
+    /**
+     * If set to false, `timeExecution` skips timing and histogram bucketing
+     * entirely and just invokes the given routine. Defaults to true.
+     */
+    enabled?: boolean;
+  };
 };
 
 /**
@@ -73,6 +80,9 @@ export type ResolvedXJogOptions = {
   shutdown: {
     ownChartPollingFrequency: number;
     adoptionTimeout: number;
+  };
+  profiling: {
+    enabled: boolean;
   };
 };
 
@@ -100,6 +110,7 @@ export function resolveXJogOptions(
       trace,
     ),
     shutdown: resolveShutdownOptions(options.shutdown, trace),
+    profiling: resolveXJogProfilingOptions(options.profiling, trace),
   };
 }
 
@@ -193,5 +204,20 @@ export function resolveShutdownOptions(
   return {
     ownChartPollingFrequency,
     adoptionTimeout,
+  };
+}
+
+/**
+ * @group XJog
+ * @ignore
+ */
+export function resolveXJogProfilingOptions(
+  options: XJogOptions['profiling'] | undefined | null,
+  trace: (...args: any[]) => void,
+): ResolvedXJogOptions['profiling'] {
+  const enabled = options?.enabled ?? true;
+
+  return {
+    enabled,
   };
 }
