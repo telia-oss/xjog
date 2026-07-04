@@ -58,20 +58,15 @@ Select the affected packages and the bump level, write a short summary, and comm
 the generated file in `.changeset/` alongside your code. While in alpha, keep bumps as
 `patch` so versions stay `0.0.x`.
 
-To cut a release (maintainers):
+To cut a release, maintainers run `pnpm version-packages` (consume changesets +
+bump) and then `pnpm release` (build + publish) from `main`. Packages publish to
+Telia's JFrog Artifactory, pinned via each package's `publishConfig.registry` and
+the `@samihult:registry` entry in `.npmrc`. The full runbook — auth and
+troubleshooting the "already published / nothing to publish" case — is in
+[releasing.md](./releasing.md).
 
-```bash
-pnpm version-packages   # consume pending changesets: bump versions + write changelogs
-pnpm install            # refresh the lockfile after the bumps
-pnpm release            # build all packages, then publish the changed ones + git tags
-```
-
-While in alpha, packages will be pushed to GitHub packages under the `@samihult` namespace. At graduation, the namespace
-will be converted to `@xjog` and the packages will be transferred to an NpmJs repository. In that phase, the publishing
-will be managed by a GitHub Actions workflow – in the alpha phase it needs to be done manually.
-
-In order to push to the private GitHub packages repository, you will need a personal access token. Ask repository owners
-for access to your GitHub account.
+Publishing is manual during alpha and requires a JFrog auth token in your
+`~/.npmrc` (never committed). See [releasing.md](./releasing.md) for details.
 
 ## Issues and branching
 

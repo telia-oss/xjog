@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Digest package with PGlite backend",
   "author": "Juha Mustonen <juha.mustonen@iki.fi>",
-  "homepage": "",
+  "homepage": "https://github.com/telia-oss/xjog",
   "license": "MIT",
   "main": "lib",
   "directories": {
@@ -28,5 +28,9 @@
     "@samihult/xjog-util": "workspace:^",
     "node-pg-migrate": "^6.2.1"
   },
-  "devDependencies": {}
+  "publishConfig": {
+    "registry": "https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/",
+    "access": "restricted"
+  },
+  "repository": "https://github.com/telia-oss/xjog"
 }
