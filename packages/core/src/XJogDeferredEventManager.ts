@@ -106,7 +106,7 @@ export class XJogDeferredEventManager {
   }
 
   public async defer(
-    PersistedDeferredEvent: Omit<
+    deferredEvent: Omit<
       PersistedDeferredEvent,
       'id' | 'eventId' | 'eventTo' | 'due' | 'timestamp' | 'lock'
     > & {
@@ -116,22 +116,22 @@ export class XJogDeferredEventManager {
     cid = getCorrelationIdentifier(),
   ): Promise<void> {
     await this.xJog.timeExecution('xjog.deferred event.defer', async () => {
-      if (!PersistedDeferredEvent.eventId) {
-        PersistedDeferredEvent.eventId = randomUUID();
+      if (!deferredEvent.eventId) {
+        deferredEvent.eventId = randomUUID();
       }
 
       const trace = (args: Record<string, any>) =>
         this.xJog.trace({
           cid,
           in: 'deferredEventManager.defer',
-          ref: PersistedDeferredEvent.ref,
-          deferredEventId: PersistedDeferredEvent.eventId,
-          deferredEventName: PersistedDeferredEvent.event.name,
+          ref: deferredEvent.ref,
+          deferredEventId: deferredEvent.eventId,
+          deferredEventName: deferredEvent.event.name,
           ...args,
         });
 
       const now = Date.now();
-      const dueTime = now + PersistedDeferredEvent.delay;
+      const dueTime = now + deferredEvent.delay;
 
       trace({
         message: 'Storing deferred event to database',
@@ -141,8 +141,8 @@ export class XJogDeferredEventManager {
       });
       await this.xJog.persistence?.deferEvent(
         {
-          ...PersistedDeferredEvent,
-          eventTo: PersistedDeferredEvent.eventTo ?? null,
+          ...deferredEvent,
+          eventTo: deferredEvent.eventTo ?? null,
           lock: null,
         },
         cid,
@@ -220,8 +220,8 @@ export class XJogDeferredEventManager {
         );
       trace({ message: 'Batch of events taken', count: deferredEvents.length });
 
-      for (const PersistedDeferredEvent of deferredEvents) {
-        this.schedule(PersistedDeferredEvent, cid);
+      for (const deferredEvent of deferredEvents) {
+        this.schedule(deferredEvent, cid);
       }
 
       // If the batch size matches with the read batch, there are probably more
@@ -414,10 +414,10 @@ export class XJogDeferredEventManager {
     cid = getCorrelationIdentifier(),
   ) {
     const deferredEventIds = this.deferredEvents
-      .filter((PersistedDeferredEvent) =>
-        ChartIdentifier.from(ref)?.matches(PersistedDeferredEvent.ref),
+      .filter((deferredEvent) =>
+        ChartIdentifier.from(ref)?.matches(deferredEvent.ref),
       )
-      .map((PersistedDeferredEvent) => PersistedDeferredEvent.id);
+      .map((deferredEvent) => deferredEvent.id);
 
     for (const id of deferredEventIds) {
       await this.cancel(id, cid);
@@ -454,18 +454,15 @@ export class XJogDeferredEventManager {
       return null;
     }
 
-    const [PersistedDeferredEvent] = this.deferredEvents.splice(
-      deferredEventIndex,
-      1,
-    );
+    const [deferredEvent] = this.deferredEvents.splice(deferredEventIndex, 1);
 
     trace({ message: 'Clearing the event timer' });
-    if (this.deferredEventTimers.has(PersistedDeferredEvent.id)) {
-      clearTimeout(this.deferredEventTimers.get(PersistedDeferredEvent.id)!);
-      this.deferredEventTimers.delete(PersistedDeferredEvent.id);
+    if (this.deferredEventTimers.has(deferredEvent.id)) {
+      clearTimeout(this.deferredEventTimers.get(deferredEvent.id)!);
+      this.deferredEventTimers.delete(deferredEvent.id);
     }
 
-    return PersistedDeferredEvent;
+    return deferredEvent;
   }
 
   public async cancel(
@@ -481,16 +478,13 @@ export class XJogDeferredEventManager {
         ...args,
       });
 
-    const PersistedDeferredEvent = await this.unschedule(eventId, cid, ref);
+    const deferredEvent = await this.unschedule(eventId, cid, ref);
 
     // TODO should cancel anyways, scheduled or not (just to be safe)
 
-    if (PersistedDeferredEvent) {
+    if (deferredEvent) {
       trace({ message: 'Removing event from the database' });
-      await this.xJog.persistence.removeDeferredEvent(
-        PersistedDeferredEvent,
-        cid,
-      );
+      await this.xJog.persistence.removeDeferredEvent(deferredEvent, cid);
     }
 
     trace({ message: 'Done' });
