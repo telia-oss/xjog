@@ -91,7 +91,7 @@ export class XJogSimulator {
     const givenPercentage = matchingRule.percentage ?? '100';
     const randomPercentage = Math.random() * 100;
     const givenPercentageNumber = Number(givenPercentage);
-    if (isNaN(givenPercentageNumber)) {
+    if (Number.isNaN(givenPercentageNumber)) {
       throw new Error(`Invalid percentage: ${givenPercentage}`);
     }
 

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   type FullStateEntry,
   type FullStateQuery,
@@ -9,7 +10,6 @@ import {
 } from '@samihult/xjog-journal-persistence';
 import type { ChartReference } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import path from 'path';
 import { Client, type PoolConfig } from 'pg';
 import bind from 'pg-bind';
 import createSubscriber from 'pg-listen';

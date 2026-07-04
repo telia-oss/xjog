@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { PGlite, type PGliteOptions } from '@electric-sql/pglite';
 import {
   type ChartReferenceWithTimestamp,
@@ -9,7 +10,6 @@ import {
 } from '@samihult/xjog-digest-persistence';
 import type { ChartReference } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import path from 'path';
 
 import type { PGliteDigestRow } from './PGliteDigestRow';
 
@@ -346,7 +346,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         const [subQueryString, subQueryBindings] =
           PGliteDigestPersistenceAdapter.filterQuery(
             expression.operand,
-            prefix + '_not',
+            `${prefix}_not`,
           );
         queryString += `NOT (${subQueryString}) `;
         Object.assign(bindings, subQueryBindings);
@@ -357,12 +357,12 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         const [leftQueryString, leftQueryBindings] =
           PGliteDigestPersistenceAdapter.filterQuery(
             expression.left,
-            prefix + '_and_lt',
+            `${prefix}_and_lt`,
           );
         const [rightQueryString, rightQueryBindings] =
           PGliteDigestPersistenceAdapter.filterQuery(
             expression.right,
-            prefix + '_and_rt',
+            `${prefix}_and_rt`,
           );
         queryString += `${leftQueryString} AND ${rightQueryString} `;
         Object.assign(bindings, leftQueryBindings);
@@ -374,12 +374,12 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
         const [leftQueryString, leftQueryBindings] =
           PGliteDigestPersistenceAdapter.filterQuery(
             expression.left,
-            prefix + '_or_lt',
+            `${prefix}_or_lt`,
           );
         const [rightQueryString, rightQueryBindings] =
           PGliteDigestPersistenceAdapter.filterQuery(
             expression.right,
-            prefix + '_or_rt',
+            `${prefix}_or_rt`,
           );
         queryString += `${leftQueryString} OR ${rightQueryString} `;
         Object.assign(bindings, leftQueryBindings);

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   type ChartReferenceWithTimestamp,
   type DigestEntries,
@@ -8,7 +9,6 @@ import {
 } from '@samihult/xjog-digest-persistence';
 import type { ChartReference } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import path from 'path';
 import { Client, Pool, type PoolConfig } from 'pg';
 import bind from 'pg-bind';
 import createSubscriber from 'pg-listen';
@@ -394,7 +394,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
         const [subQueryString, subQueryBindings] =
           PostgresDigestPersistenceAdapter.filterQuery(
             expression.operand,
-            prefix + '_not',
+            `${prefix}_not`,
           );
         queryString += `NOT (${subQueryString}) `;
         Object.assign(bindings, subQueryBindings);
@@ -405,12 +405,12 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
         const [leftQueryString, leftQueryBindings] =
           PostgresDigestPersistenceAdapter.filterQuery(
             expression.left,
-            prefix + '_and_lt',
+            `${prefix}_and_lt`,
           );
         const [rightQueryString, rightQueryBindings] =
           PostgresDigestPersistenceAdapter.filterQuery(
             expression.right,
-            prefix + '_and_rt',
+            `${prefix}_and_rt`,
           );
         queryString += `${leftQueryString} AND ${rightQueryString} `;
         Object.assign(bindings, leftQueryBindings);
@@ -422,12 +422,12 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
         const [leftQueryString, leftQueryBindings] =
           PostgresDigestPersistenceAdapter.filterQuery(
             expression.left,
-            prefix + '_or_lt',
+            `${prefix}_or_lt`,
           );
         const [rightQueryString, rightQueryBindings] =
           PostgresDigestPersistenceAdapter.filterQuery(
             expression.right,
-            prefix + '_or_rt',
+            `${prefix}_or_rt`,
           );
         queryString += `${leftQueryString} OR ${rightQueryString} `;
         Object.assign(bindings, leftQueryBindings);

@@ -1,5 +1,6 @@
 export type { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
 
+import path from 'node:path';
 import {
   PGlite,
   type PGliteOptions,
@@ -16,7 +17,6 @@ import {
   getCorrelationIdentifier,
 } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import path from 'path';
 
 import type {
   EventObject,

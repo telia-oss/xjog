@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   type PersistedChart,
   type PersistedDeferredEvent,
@@ -9,7 +10,6 @@ import {
   getCorrelationIdentifier,
 } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import path from 'path';
 import { type ClientConfig, Pool, type PoolClient, type PoolConfig } from 'pg';
 import bind from 'pg-bind';
 
@@ -24,7 +24,7 @@ import type {
 /**
  * Options for instantiating {@link PostgresPersistenceAdapter}.
  */
-export type PostgreSQLPersistenceAdapterOptions = {};
+export type PostgreSQLPersistenceAdapterOptions = Record<string, never>;
 
 /**
  * Chart row directly from the SQL query

@@ -724,7 +724,7 @@ export class XJogChart<
         if (delayRule) {
           // Assume the value is in milliseconds and delay of the event
           const delay = parseInt(delayRule.value ?? '0');
-          if (!isNaN(delay)) {
+          if (!Number.isNaN(delay)) {
             await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
@@ -1478,7 +1478,7 @@ export class XJogChart<
         (onReceiveListener) => {
           listener = onReceiveListener;
         },
-      ) as () => void | undefined;
+      ) as () => void;
     } catch (error) {
       initialError = error;
     }
