@@ -13,7 +13,8 @@ pnpm changeset
 
 Pick the affected packages and the bump level (patch / minor / major), then write
 a short summary. This creates a markdown file in `.changeset/` — commit it with
-your PR. While in alpha, keep all bumps as `patch` so versions stay `0.0.x`.
+your PR. During beta, use `minor` for features and `patch` for fixes; versions
+stay `0.x.y` until a `1.0` release.
 
 ## Releasing (maintainers)
 
@@ -24,5 +25,5 @@ pnpm release            # builds all packages, then publishes changed ones + git
 ```
 
 `updateInternalDependencies` is set to `patch`, so a bump to one package also nudges
-the `workspace:^` dependents. `access` is `restricted` because alpha packages are
-published to Telia's private JFrog Artifactory registry under `@telia-oss`.
+the `workspace:^` dependents. `access` is `restricted` because these are private
+packages, published to Telia's JFrog Artifactory registry under `@telia-oss`.

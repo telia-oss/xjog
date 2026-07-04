@@ -5,8 +5,8 @@ charts. XJog is built for driving business processes that run for minutes, days,
 or months — an order that moves from cart, through checkout, into fulfilment and
 delivery — where each chart must survive restarts, deploys, and crashes.
 
-> **Alpha.** The API, feature set, and database schema are still changing. Future
-> versions may not migrate data written by earlier alpha releases. Current
+> **Beta.** The API, feature set, and database schema may still change, though
+> less often than in alpha. Some updates may require a data migration. Current
 > version: `0.2.0`.
 
 XState defines *how* a chart behaves; XJog takes ownership of *running* it:
