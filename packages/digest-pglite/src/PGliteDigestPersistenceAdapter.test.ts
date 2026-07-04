@@ -107,4 +107,48 @@ describe('PGliteDigestPersistenceAdapter', () => {
     const paged = await adapter.queryDigests({ offset: 0, limit: 2 });
     expect(paged).toHaveLength(2);
   });
+
+  // Regression: the digest key was interpolated into the binding *name*
+  // (`q_eq_${key}`), so a key with a hyphen/dot/digit produced a `:name`
+  // token that the placeholder substitution truncated at the first
+  // non-word character, binding NULL and leaking the tail into the SQL.
+  it('should filter on keys containing non-word characters', async () => {
+    const adapter = await PGliteDigestPersistenceAdapter.connect();
+
+    const refA: ChartReference = { machineId: 'm1', chartId: 'c1' };
+    const refB: ChartReference = { machineId: 'm1', chartId: 'c2' };
+
+    await adapter.record(refA, { 'user-status.v2': 'done' });
+    await adapter.record(refB, { 'user-status.v2': 'pending' });
+
+    const done = await adapter.queryDigests({
+      query: { op: 'eq', left: 'user-status.v2', right: 'done' },
+    });
+    expect(done).toHaveLength(1);
+    expect(done[0]).toMatchObject({ machineId: 'm1', chartId: 'c1' });
+  });
+
+  // Regression: the 'updated after' case reused the 'created before' binding
+  // key, so its bound value went unused. Exercise the timestamp filter path
+  // (untested before) to lock in the binding.
+  it('should apply an "updated after" timestamp filter', async () => {
+    const adapter = await PGliteDigestPersistenceAdapter.connect();
+    await adapter.record(chartReference, { foo: 'bar' });
+
+    // The digest was written "now", so it counts as updated after the epoch...
+    const afterEpoch = await adapter.queryDigests({
+      query: { op: 'updated after', dateTime: new Date(0) },
+    });
+    expect(afterEpoch).toHaveLength(1);
+    expect(afterEpoch[0]).toMatchObject(chartReference);
+
+    // ...but not after a point in the far future.
+    const afterFuture = await adapter.queryDigests({
+      query: {
+        op: 'updated after',
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+    expect(afterFuture).toHaveLength(0);
+  });
 });

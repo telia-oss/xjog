@@ -27,6 +27,19 @@ function buildMockXJog(persistence: PGlitePersistenceAdapter): XJog {
     timeExecution: <T>(_op: string, routine: () => T): T => routine(),
     simulator: { isEnabled: () => false },
     updateHooks: new Set<any>(),
+    // Mirrors XJog.runUpdateHooks: best-effort per-hook invocation that
+    // catches both synchronous throws and rejections.
+    runUpdateHooks: async (
+      change: any,
+      _label: string,
+      onError: (err: unknown) => void,
+    ): Promise<void> => {
+      for (const hook of xJog.updateHooks) {
+        await Promise.resolve()
+          .then(() => hook(change))
+          .catch(onError);
+      }
+    },
     changeSubject: new Subject<any>(),
     activityManager: {
       sendAutoForwardEvent: jest.fn(),
@@ -631,5 +644,42 @@ describe('XJogChart done-data resolution', () => {
     expect(sentEvent.type).toBe(`done.invoke.${chart.id}`);
     expect(sentEvent.data).toEqual({ result: 42 });
     expect(typeof (sentEvent.data as any)?.then).not.toBe('function');
+  });
+
+  // Regression: the done-notification block was awaited outside send()'s
+  // try/catch, so a throwing final-state `data` mapper rejected send() after
+  // the transition was already committed and the mutex released — reporting a
+  // hard failure for a transition that actually succeeded. It must degrade to
+  // a logged best-effort skip instead.
+  it('does not reject send() when the final-state data mapper throws', async () => {
+    const persistence = await connectTestPersistence();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine({
+      predictableActionArguments: false,
+      id: 'done-data-throw-machine',
+      initial: 'working',
+      states: {
+        working: { on: { finish: 'done' } },
+        done: {
+          type: 'final',
+          data: () => {
+            throw new Error('Simulated done-data failure');
+          },
+        },
+      },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const parentRef = { machineId: 'parent-machine', chartId: 'parent-chart' };
+    const chart = await xJogMachine.createChart({ parentRef });
+
+    const result = await chart.send('finish');
+
+    // send() resolves with the (committed) final state rather than rejecting,
+    // and the parent notification is skipped rather than sent with bad data.
+    expect(result?.done).toBe(true);
+    expect(xJog.sendEvent).not.toHaveBeenCalled();
+    expect(chart.chartMutex.isLocked()).toBe(false);
   });
 });

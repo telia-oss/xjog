@@ -735,4 +735,30 @@ export class XJog extends XJogLogEmitter {
     this.updateHooks.add(hook);
     return () => this.updateHooks.delete(hook);
   }
+
+  /**
+   * Invokes every installed update hook for a state change, best-effort: each
+   * hook is wrapped so that both synchronous throws and rejected promises are
+   * caught and handed to `onError` rather than aborting the caller
+   * (create/send/destroy). `Promise.resolve().then(() => hook(change))` is
+   * deliberate — `Promise.resolve(hook(change))` would evaluate `hook(change)`
+   * eagerly and let a synchronous throw escape the catch.
+   *
+   * @param change The state change to pass to each hook.
+   * @param timeExecutionLabel Profiling label for the per-hook timing.
+   * @param onError Called with whatever a failing hook threw or rejected with.
+   */
+  public async runUpdateHooks(
+    change: XJogStateChange,
+    timeExecutionLabel: string,
+    onError: (err: unknown) => void,
+  ): Promise<void> {
+    for (const hook of this.updateHooks) {
+      await this.timeExecution(timeExecutionLabel, async () => {
+        await Promise.resolve()
+          .then(() => hook(change))
+          .catch(onError);
+      });
+    }
+  }
 }

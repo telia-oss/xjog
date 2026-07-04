@@ -9,6 +9,7 @@ export * from './LogLevels';
 export * from './logEmit';
 export * from './nullSafeApplyJsonDiff';
 export * from './pickIntegerOption';
+export * from './positionalParameters';
 export * from './UpdateHook';
 export * from './waitFor';
 export * from './XJogActionTypes';

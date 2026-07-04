@@ -214,20 +214,11 @@ export class XJogChart<
 
       const change = resolveXJogCreateStateChange(ref, parentRef, state);
 
-      for (const hook of xJogMachine.xJog.updateHooks) {
-        await xJogMachine.xJog.timeExecution(
-          'chart.create.call hook',
-          async () => {
-            // Promise.resolve().then(...) also catches synchronous throws,
-            // which Promise.resolve(hook(change)) would let escape
-            await Promise.resolve()
-              .then(() => hook(change))
-              .catch((err) =>
-                xJogMachine.xJog.error({ err }, 'Failed to execute hook'),
-              );
-          },
-        );
-      }
+      await xJogMachine.xJog.runUpdateHooks(
+        change,
+        'chart.create.call hook',
+        (err) => xJogMachine.xJog.error({ err }, 'Failed to execute hook'),
+      );
 
       await xJogMachine.xJog.timeExecution('chart.create.store', async () => {
         await xJogMachine.persistence?.createChart<
@@ -633,18 +624,14 @@ export class XJogChart<
       );
 
       try {
-        for (const hook of this.xJog.updateHooks) {
-          await this.xJog.timeExecution('chart.destroy.call hook', async () => {
-            // Promise.resolve().then(...) also catches synchronous throws
-            await Promise.resolve()
-              .then(() => hook(change))
-              .catch((err) =>
-                this.error({ cid, in: 'destroy' }, 'Failed to execute hook', {
-                  err,
-                }),
-              );
-          });
-        }
+        await this.xJog.runUpdateHooks(
+          change,
+          'chart.destroy.call hook',
+          (err) =>
+            this.error({ cid, in: 'destroy' }, 'Failed to execute hook', {
+              err,
+            }),
+        );
 
         trace({ message: 'Destroying persisted chart' });
         await this.persistence?.destroyChart(this.ref, cid);
@@ -819,14 +806,9 @@ export class XJogChart<
           );
         });
 
-        for (const hook of this.xJog.updateHooks) {
-          await this.xJog.timeExecution('chart.send.call hook', async () => {
-            // Promise.resolve().then(...) also catches synchronous throws
-            await Promise.resolve()
-              .then(() => hook(change))
-              .catch((err) => error({ err }, 'Failed to execute hook'));
-          });
-        }
+        await this.xJog.runUpdateHooks(change, 'chart.send.call hook', (err) =>
+          error({ err }, 'Failed to execute hook'),
+        );
 
         // Bug fix: changeSubject.next() can throw if a synchronous subscriber
         // errors. This must not prevent executeActions() from running, as that
@@ -873,19 +855,28 @@ export class XJogChart<
       }
 
       if (this.state.done && this.parentRef) {
-        trace({ message: 'Final state reached' });
-        const doneData = await this.resolveDoneData(this.state, cid);
+        // Best-effort: the transition is already committed and the mutex
+        // released by this point, so a throwing final-state `data` mapper (or
+        // resolveDoneData failing to locate the final node) must not reject
+        // send() — that would report a hard failure for a transition that
+        // actually succeeded. Log and skip the parent notification instead.
+        try {
+          trace({ message: 'Final state reached' });
+          const doneData = await this.resolveDoneData(this.state, cid);
 
-        trace({ message: 'Notifying the owner that chart is done' });
+          trace({ message: 'Notifying the owner that chart is done' });
 
-        // TODO should probably defer this event
-        await this.xJog.sendEvent(
-          this.parentRef,
-          doneInvoke(this.id, doneData),
-          undefined,
-          undefined,
-          cid,
-        );
+          // TODO should probably defer this event
+          await this.xJog.sendEvent(
+            this.parentRef,
+            doneInvoke(this.id, doneData),
+            undefined,
+            undefined,
+            cid,
+          );
+        } catch (err) {
+          error('Failed to notify owner that chart is done', { err });
+        }
       }
 
       trace({ message: 'Done' });

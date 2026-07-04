@@ -9,9 +9,10 @@ import {
   JournalPersistenceAdapter,
   type JournalQuery,
 } from '@telia-oss/xjog-journal-persistence';
-import type {
-  ChartReference,
-  XJogStateChangeAction,
+import {
+  type ChartReference,
+  createPositionalParameters,
+  type XJogStateChangeAction,
 } from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import type { EventObject, StateValue } from 'xstate';
@@ -256,11 +257,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     } else {
       // PGlite takes positional parameters only, so placeholders are
       // numbered in the order their conditions are appended
-      const params: unknown[] = [];
-      const nextParam = (value: unknown): string => {
-        params.push(value);
-        return `$${params.length}`;
-      };
+      const { params, nextParam } = createPositionalParameters();
 
       let sql =
         'SELECT ' +
@@ -423,11 +420,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     } else {
       // PGlite takes positional parameters only, so placeholders are
       // numbered in the order their conditions are appended
-      const params: unknown[] = [];
-      const nextParam = (value: unknown): string => {
-        params.push(value);
-        return `$${params.length}`;
-      };
+      const { params, nextParam } = createPositionalParameters();
 
       let sql =
         'SELECT ' +

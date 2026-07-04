@@ -699,6 +699,9 @@ export abstract class PersistenceAdapter<
     const trace = (args: Record<string, any>) =>
       this.trace({ cid, in: 'forciblyAdoptCharts', ...args });
 
+    const error = (args: Record<string, any>) =>
+      this.error({ cid, in: 'forciblyAdoptCharts', ...args });
+
     trace({ message: 'Forcibly adopt all foreign charts' });
 
     // Claim each paused chart atomically regardless of ongoing activities.
@@ -708,9 +711,35 @@ export abstract class PersistenceAdapter<
 
     const adoptedChartIds: ChartReference[] = [];
     for (const ref of candidateChartIds) {
-      if (await this.claimPausedChart(instanceId, ref, false)) {
+      let claimed: boolean;
+      try {
+        claimed = await this.claimPausedChart(instanceId, ref, false);
+      } catch (err) {
+        // Claim failed before the chart was unpaused: it stays paused, so the
+        // next reconciler pass retries it. A transient error on one chart must
+        // not abort adoption of the rest.
+        error({ message: 'Failed to claim chart; skipping', ref, err });
+        continue;
+      }
+
+      if (!claimed) {
+        continue;
+      }
+
+      // The chart is now owned by this instance and unpaused, so it MUST be
+      // reported for starting even if clearing its stale activity rows fails.
+      // Otherwise it would be stranded: owned, unpaused, never started, and no
+      // longer counted as paused, so the reconciler would never retry it.
+      adoptedChartIds.push(ref);
+
+      try {
         await this.deleteOngoingActivitiesForChart(ref);
-        adoptedChartIds.push(ref);
+      } catch (err) {
+        error({
+          message: 'Failed to clear stale activities for adopted chart',
+          ref,
+          err,
+        });
       }
     }
 

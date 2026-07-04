@@ -8,7 +8,10 @@ import {
   type DigestQuery,
   type Expression,
 } from '@telia-oss/xjog-digest-persistence';
-import type { ChartReference } from '@telia-oss/xjog-util';
+import {
+  type ChartReference,
+  createPositionalParameters,
+} from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 
 import type { PGliteDigestRow } from './PGliteDigestRow';
@@ -170,11 +173,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     // PGlite takes positional parameters only, so placeholders are numbered
     // in the order their conditions are appended, and the named `:binding`
     // tokens produced by `filterQuery` are substituted the same way.
-    const params: unknown[] = [];
-    const nextParam = (value: unknown): string => {
-      params.push(value);
-      return `$${params.length}`;
-    };
+    const { params, nextParam } = createPositionalParameters();
 
     let sql =
       'SELECT DISTINCT "machineId", "chartId", ' +
@@ -231,10 +230,13 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     let queryString = '';
     const bindings: Record<string, string | number> = {};
 
-    const createBindingKey = (
-      op: 'eq' | 're' | 'lt' | 'lte' | 'gt' | 'gte',
-      key: string,
-    ) => `${prefix}_${op}_${key}`;
+    // The recursion `prefix` already uniquely identifies this node, so the
+    // binding name needs only the operator to stay unique. The digest key is
+    // carried as a bound *value* (see addBindings), never interpolated into the
+    // name — embedding it here produced names with hyphens/dots/digits that the
+    // `:name` -> `$n` substitution truncates, mis-binding the query.
+    const createBindingKey = (op: 'eq' | 're' | 'lt' | 'lte' | 'gt' | 'gte') =>
+      `${prefix}_${op}`;
 
     const keyMatchSql = (key: string, bindingKey: string): string =>
       key ? `AND "candidate"."key" = :key_${bindingKey} ` : '';
@@ -258,7 +260,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
 
     switch (expression.op) {
       case 'eq': {
-        const bindingKey = createBindingKey('eq', expression.left);
+        const bindingKey = createBindingKey('eq');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -268,7 +270,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case 'matches': {
-        const bindingKey = createBindingKey('re', expression.left);
+        const bindingKey = createBindingKey('re');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -280,7 +282,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       // Numeric inequality
 
       case '<': {
-        const bindingKey = createBindingKey('lt', expression.left);
+        const bindingKey = createBindingKey('lt');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -290,7 +292,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case '>': {
-        const bindingKey = createBindingKey('gt', expression.left);
+        const bindingKey = createBindingKey('gt');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -300,7 +302,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case '<=': {
-        const bindingKey = createBindingKey('lte', expression.left);
+        const bindingKey = createBindingKey('lte');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -310,7 +312,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case '>=': {
-        const bindingKey = createBindingKey('gte', expression.left);
+        const bindingKey = createBindingKey('gte');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +

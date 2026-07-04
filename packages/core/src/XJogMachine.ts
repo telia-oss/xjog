@@ -97,18 +97,25 @@ export class XJogMachine<
     this.trace({ in: 'cleanCache' }, 'Cleaning cache');
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
     try {
-      while (this.chartCacheKeys.size > this.options.cacheSize) {
-        // Remove oldest
-        const chartCacheKeyIterator = this.chartCacheKeys.values();
-        const oldestCacheKey = chartCacheKeyIterator.next()?.value;
-        if (!oldestCacheKey) {
+      // Evict oldest-first (Set preserves insertion order), but only charts
+      // that are currently idle. evictCacheEntry awaits the chart's mutex
+      // release, and cleanCache runs while holding cacheMutex — so evicting a
+      // busy chart would stall every concurrent getChart behind that chart's
+      // in-flight operation, and in the worst case deadlock: send() calls
+      // refreshCache -> cleanCache while still holding its own chart mutex, so
+      // trying to evict that same chart would wait for a mutex it can only
+      // release after cleanCache returns. A busy chart is left cached and
+      // reconsidered on the next pass once idle, so the cache may briefly
+      // exceed cacheSize by the number of concurrently-busy charts.
+      for (const cacheKey of this.chartCacheKeys) {
+        if (this.chartCacheKeys.size <= this.options.cacheSize) {
           break;
         }
-        this.trace(
-          { in: 'cleanCache', key: oldestCacheKey },
-          'Removing oldest',
-        );
-        await this.evictCacheEntry(oldestCacheKey, false);
+        if (this.chartCacheStore[cacheKey]?.chartMutex.isLocked()) {
+          continue;
+        }
+        this.trace({ in: 'cleanCache', key: cacheKey }, 'Removing oldest idle');
+        await this.evictCacheEntry(cacheKey, false);
       }
     } finally {
       releaseMutex?.();
