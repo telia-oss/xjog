@@ -412,17 +412,6 @@ export abstract class PersistenceAdapter<
 
   /**
    * @abstract
-   * @group Deferred events
-   */
-  // protected abstract markDeferredEventBatchForProcessing(
-  //   instanceId: string,
-  //   lookAhead: number,
-  //   batchSize: number,
-  //   connection?: ConnectionType,
-  // ): Promise<void>;
-
-  /**
-   * @abstract
    */
   public abstract releaseDeferredEvent(
     ref: ChartReference,

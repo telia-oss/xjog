@@ -96,19 +96,23 @@ export class XJogMachine<
   private async cleanCache(mutex = true) {
     this.trace({ in: 'cleanCache' }, 'Cleaning cache');
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
-    if (this.chartCacheKeys.size > this.options.cacheSize) {
-      // Remove oldest
-      const chartCacheKeyIterator = this.chartCacheKeys.values();
-      const oldestCacheKey = chartCacheKeyIterator.next()?.value;
-      if (oldestCacheKey) {
+    try {
+      while (this.chartCacheKeys.size > this.options.cacheSize) {
+        // Remove oldest
+        const chartCacheKeyIterator = this.chartCacheKeys.values();
+        const oldestCacheKey = chartCacheKeyIterator.next()?.value;
+        if (!oldestCacheKey) {
+          break;
+        }
         this.trace(
           { in: 'cleanCache', key: oldestCacheKey },
           'Removing oldest',
         );
         await this.evictCacheEntry(oldestCacheKey, false);
       }
+    } finally {
+      releaseMutex?.();
     }
-    releaseMutex?.();
   }
 
   public async refreshCache(
@@ -117,21 +121,27 @@ export class XJogMachine<
   ): Promise<void> {
     this.trace({ in: 'refreshCache', chartId: chart.id }, 'Refreshing cache');
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
-    this.chartCacheKeys.add(chart.id);
-    this.chartCacheStore[chart.id] = chart;
-    await this.cleanCache(false);
-    releaseMutex?.();
+    try {
+      this.chartCacheKeys.add(chart.id);
+      this.chartCacheStore[chart.id] = chart;
+      await this.cleanCache(false);
+    } finally {
+      releaseMutex?.();
+    }
   }
 
   public async evictCacheEntry(chartId: string, mutex = true): Promise<void> {
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
-    this.trace({ in: 'evictCacheEntry', chartId }, 'Evicting cache entry');
-    if (this.chartCacheStore[chartId]) {
-      await this.chartCacheStore[chartId].wait();
-      this.chartCacheKeys.delete(chartId);
-      delete this.chartCacheStore[chartId];
+    try {
+      this.trace({ in: 'evictCacheEntry', chartId }, 'Evicting cache entry');
+      if (this.chartCacheStore[chartId]) {
+        await this.chartCacheStore[chartId].wait();
+        this.chartCacheKeys.delete(chartId);
+        delete this.chartCacheStore[chartId];
+      }
+    } finally {
+      releaseMutex?.();
     }
-    releaseMutex?.();
   }
 
   /**

@@ -156,7 +156,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
   private readonly digestEntrySqlSelectFields =
     'extract(epoch from "created") * 1000 AS "created", ' +
     'extract(epoch from "timestamp") * 1000 AS "timestamp", ' +
-    '"machineId", "chartId", "key, "value" ';
+    '"machineId", "chartId", "key", "value" ';
 
   public async readDigest(
     ref: ChartReference,
@@ -200,7 +200,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
     const digestEntries: DigestEntries = {};
 
     for (const row of result.rows) {
-      digestEntries[row.machineId] =
+      digestEntries[row.key] =
         PostgresDigestPersistenceAdapter.parseSqlDigestRow(row);
     }
 
@@ -378,7 +378,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case 'updated after': {
-        const bindingKey = `${prefix}_crbef`;
+        const bindingKey = `${prefix}_udaft`;
         bindings[`value_${bindingKey}`] = expression.dateTime.valueOf();
         queryString +=
           'NOT ' +

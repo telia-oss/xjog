@@ -1,6 +1,5 @@
 export * from './AbstractPersistenceAdapter';
 export * from './ActivityRef';
-export * from './BurstController';
 export * from './ChartIdentifier';
 export * from './ChartReference';
 export * from './correlationIdentifier';

@@ -10,6 +10,9 @@ export class XJogDigestWriter extends XJogLogEmitter {
 
   private readonly options: XJogDigestWriterResolvedOptions;
 
+  /** Removes the update hook installed by the constructor. */
+  public readonly uninstall: () => void;
+
   constructor(
     private readonly xJog: XJog,
     private readonly persistence: DigestPersistenceAdapter,
@@ -23,7 +26,7 @@ export class XJogDigestWriter extends XJogLogEmitter {
     };
 
     this.debug('Installing an update hook');
-    xJog.installUpdateHook(async (change: XJogStateChange) => {
+    this.uninstall = xJog.installUpdateHook(async (change: XJogStateChange) => {
       const trace = (...args: Array<string | Record<string, unknown>>) =>
         this.trace({ ref: change.ref, in: 'update hook' }, ...args);
 

@@ -526,55 +526,6 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
     return result.affectedRows ?? 0;
   }
 
-  public async destroyChart(
-    ref: ChartReference,
-    cid = getCorrelationIdentifier(),
-  ): Promise<void> {
-    const trace = (args: Record<string, any>) =>
-      this.trace({ cid, in: 'destroyChart', ref, ...args });
-
-    {
-      trace({ message: 'Removing chart from the database' });
-      const deletedRecords = await this.deleteChart(ref);
-
-      if (deletedRecords < 1) {
-        trace({
-          level: 'warning',
-          message: 'Chart not found in the database',
-        });
-        return;
-      } else if (deletedRecords === 1) {
-        trace({ message: 'Removed chart from the database' });
-      } else {
-        trace({
-          level: 'warning',
-          message: 'Removed multiple charts from the database',
-          deletedRecords,
-        });
-      }
-    }
-
-    {
-      trace({ message: 'Removing deferred events from the database' });
-      const deletedRecords = await this.deleteAllDeferredEvents(ref);
-      trace({
-        message: 'Removed deferred events from the database',
-        deletedRecords,
-      });
-    }
-
-    {
-      trace({ message: 'Removing external identifiers from the database' });
-      const deletedRecords = this.deleteExternalIdentifiers(ref);
-      trace({
-        message: 'Removed external identifiers from the database',
-        deletedRecords,
-      });
-    }
-
-    trace({ message: 'Done' });
-  }
-
   /**
    * @returns Number of deleted records
    */
@@ -808,26 +759,6 @@ export class PGlitePersistenceAdapter extends PersistenceAdapter<PGlite> {
 
     return result.rows.map(PGlitePersistenceAdapter.parseSqlDeferredEventRow);
   }
-
-  // protected async markDeferredEventBatchForProcessing(
-  //   instanceId: string,
-  //   lookAhead: number,
-  //   batchSize: number,
-  //   connection: Pool | PoolClient = this.pool,
-  // ): Promise<void> {
-  //   await connection.query(
-  //     'UPDATE "deferredEvents" ' +
-  //       'SET "lock"=$3 WHERE "id" IN ' +
-  //       '(' +
-  //       '  SELECT "id" FROM "deferredEvents" ' +
-  //       '  WHERE "due"<(transaction_timestamp() + make_interval(secs => $1::bigint / 1000)) ' +
-  //       '    AND "lock" IS NULL ' +
-  //       '  ORDER BY "due" ASC, "id" DESC ' +
-  //       '  LIMIT $2::bigint' +
-  //       ')',
-  //     [lookAhead, batchSize, instanceId],
-  //   );
-  // }
 
   public async releaseDeferredEvent(
     ref: ChartReference,

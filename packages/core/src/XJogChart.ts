@@ -121,10 +121,6 @@ export class XJogChart<
 
   public readonly chartMutex: MutexInterface;
 
-  // private updateSubject = new Subject<
-  //   State<TContext, TEvent, TStateSchema, TTypeState>
-  // >();
-
   /**
    * @param xJogMachine
    * @param parentRef Optional parent chart or activity that spawned this chart.
@@ -222,9 +218,13 @@ export class XJogChart<
         await xJogMachine.xJog.timeExecution(
           'chart.create.call hook',
           async () => {
-            await Promise.resolve(hook(change)).catch((err) =>
-              xJogMachine.xJog.error({ err }, 'Failed to execute hook'),
-            );
+            // Promise.resolve().then(...) also catches synchronous throws,
+            // which Promise.resolve(hook(change)) would let escape
+            await Promise.resolve()
+              .then(() => hook(change))
+              .catch((err) =>
+                xJogMachine.xJog.error({ err }, 'Failed to execute hook'),
+              );
           },
         );
       }
@@ -364,24 +364,23 @@ export class XJogChart<
       ),
     );
 
-    const missingAfterActions: Array<SendActionObject<TContext, TEvent>> = [];
+    // The existence checks are independent, so they can run concurrently
+    const presenceChecks = await Promise.all(
+      afterActions
+        .filter((action) => action.id)
+        .map(async (action) => {
+          const isPresent =
+            await xJogMachine.persistence.isDeferredEventPresent(
+              { machineId: xJogMachine.id, chartId },
+              action.id,
+            );
+          return { action, isPresent };
+        }),
+    );
 
-    for (const action of afterActions) {
-      if (!action.id) {
-        continue;
-      }
-
-      const isPresent = await xJogMachine.persistence.isDeferredEventPresent(
-        { machineId: xJogMachine.id, chartId },
-        action.id,
-      );
-
-      if (!isPresent) {
-        missingAfterActions.push(action);
-      }
-    }
-
-    return missingAfterActions;
+    return presenceChecks
+      .filter(({ isPresent }) => !isPresent)
+      .map(({ action }) => action);
   }
 
   /**
@@ -633,16 +632,25 @@ export class XJogChart<
         async () => this.acquireMutex(),
       );
 
-      for (const hook of this.xJog.updateHooks) {
-        await this.xJog.timeExecution('chart.destroy.call hook', async () => {
-          await hook(change);
-        });
+      try {
+        for (const hook of this.xJog.updateHooks) {
+          await this.xJog.timeExecution('chart.destroy.call hook', async () => {
+            // Promise.resolve().then(...) also catches synchronous throws
+            await Promise.resolve()
+              .then(() => hook(change))
+              .catch((err) =>
+                this.error({ cid, in: 'destroy' }, 'Failed to execute hook', {
+                  err,
+                }),
+              );
+          });
+        }
+
+        trace({ message: 'Destroying persisted chart' });
+        await this.persistence?.destroyChart(this.ref, cid);
+      } finally {
+        await releaseMutex();
       }
-
-      trace({ message: 'Destroying persisted chart' });
-      await this.persistence?.destroyChart(this.ref, cid);
-
-      await releaseMutex();
 
       this.xJog.changeSubject.next(change);
     });
@@ -813,9 +821,10 @@ export class XJogChart<
 
         for (const hook of this.xJog.updateHooks) {
           await this.xJog.timeExecution('chart.send.call hook', async () => {
-            await Promise.resolve(hook(change)).catch((err) =>
-              error({ err }, 'Failed to execute hook'),
-            );
+            // Promise.resolve().then(...) also catches synchronous throws
+            await Promise.resolve()
+              .then(() => hook(change))
+              .catch((err) => error({ err }, 'Failed to execute hook'));
           });
         }
 
@@ -865,7 +874,7 @@ export class XJogChart<
 
       if (this.state.done && this.parentRef) {
         trace({ message: 'Final state reached' });
-        const doneData = this.resolveDoneData(this.state, cid);
+        const doneData = await this.resolveDoneData(this.state, cid);
 
         trace({ message: 'Notifying the owner that chart is done' });
 
@@ -892,7 +901,7 @@ export class XJogChart<
   private resolveDoneData(
     state: State<TContext, TEvent, TStateSchema, TTypeState>,
     cid = getCorrelationIdentifier(),
-  ): any {
+  ): Promise<any> {
     return this.xJog.timeExecution('chart.resolve done data', async () => {
       const trace = (...args: Array<string | Record<string, unknown>>) =>
         this.trace({ cid, in: 'resolveDoneData' }, ...args);
@@ -1916,8 +1925,7 @@ export class XJogChart<
 
     if (this.state.done) {
       trace({ message: 'Already done' });
-      const doneData = this.resolveDoneData(this.state, cid);
-      return Promise.resolve(doneData);
+      return this.resolveDoneData(this.state, cid);
     }
 
     return new Promise((resolve, reject) => {
@@ -1968,11 +1976,16 @@ export class XJogChart<
 
       await this.chartMutex.waitForUnlock();
     } catch (err) {
-      error({ message: 'Mutex failure' });
-      throw new Error(
-        `Waiting for mutex unlock timed out in chart ` +
-          `${this.xJogMachine.id}/${this.id} ` +
-          `in wait method`,
+      error({ message: 'Mutex failure', err });
+      // Attached as `cause` manually; the es2015 lib target predates the
+      // `Error` constructor's options bag.
+      throw Object.assign(
+        new Error(
+          `Waiting for mutex unlock timed out in chart ` +
+            `${this.xJogMachine.id}/${this.id} ` +
+            `in wait method`,
+        ),
+        { cause: err },
       );
     }
 

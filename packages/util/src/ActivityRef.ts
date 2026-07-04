@@ -50,7 +50,7 @@ export interface ActivityRef
 }
 
 export function isActivityRef(input: any): input is ActivityRef {
-  if (typeof input !== 'object' && input === null) {
+  if (typeof input !== 'object' || input === null) {
     return false;
   }
 

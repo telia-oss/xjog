@@ -404,7 +404,7 @@ export class XJog extends XJogLogEmitter {
     cid = getCorrelationIdentifier(),
   ): Promise<void> {
     return this.timeExecution('xjog.drop external id', async () => {
-      this.persistence?.dropExternalId(key, value, cid);
+      await this.persistence?.dropExternalId(key, value, cid);
     });
   }
 
@@ -559,10 +559,7 @@ export class XJog extends XJogLogEmitter {
       }
 
       // Target is probable an activity, check if exists
-      else if (
-        typeof to === 'string' &&
-        typeof this.activityManager.has(sender, to)
-      ) {
+      else if (typeof to === 'string' && this.activityManager.has(sender, to)) {
         return this.timeExecution('xjog.send to.activity', async () => {
           trace('Target is an activity, sending the event');
           this.activityManager.sendTo(sender, to, event, cid);
@@ -727,9 +724,10 @@ export class XJog extends XJogLogEmitter {
   }
 
   /**
-   * The given routine is executed as part of the state update transaction.
-   * If it fails, the transaction is rolled back and an error is thrown for
-   * any send functions.
+   * The given routine is called for every state change (create, update,
+   * delete), after the change has been persisted but before actions execute.
+   * Hooks are best-effort: a rejection is logged and does not roll back the
+   * transition or fail the send.
    *
    * @returns Uninstaller function
    */

@@ -565,3 +565,71 @@ describe('ChartOwnershipLostError.is', () => {
     expect(ChartOwnershipLostError.is('ChartOwnershipLostError')).toBe(false);
   });
 });
+
+describe('XJogChart.destroy with a failing update hook', () => {
+  // Regression: destroy() ran hooks and destroyChart outside try/finally
+  // and without per-hook error handling, so one throwing hook aborted the
+  // destroy, left the persisted chart in place, and never released the
+  // chart mutex, wedging every later operation on the chart
+  it('destroys the chart and releases the mutex even if a hook throws', async () => {
+    const persistence = await connectTestPersistence();
+    const xJog = buildMockXJog(persistence);
+
+    xJog.updateHooks.add(() => {
+      throw new Error('Simulated hook failure');
+    });
+
+    const machine = createMachine({
+      predictableActionArguments: false,
+      id: 'destroy-hook-machine',
+      initial: 'idle',
+      states: { idle: {} },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const chart = await xJogMachine.createChart();
+
+    await expect(chart.destroy()).resolves.toBeUndefined();
+
+    expect(await persistence.isChartPresent(chart.ref)).toBe(false);
+    expect(chart.chartMutex.isLocked()).toBe(false);
+  });
+});
+
+describe('XJogChart done-data resolution', () => {
+  // Regression: resolveDoneData() returns a Promise (its body runs through
+  // timeExecution's async wrapper), but send() passed the return value into
+  // doneInvoke() without awaiting, so the parent chart received a Promise
+  // object as the done event's data instead of the mapped value
+  it('sends the resolved done data to the parent, not a Promise', async () => {
+    const persistence = await connectTestPersistence();
+    const xJog = buildMockXJog(persistence);
+
+    const machine = createMachine({
+      predictableActionArguments: false,
+      id: 'done-data-machine',
+      initial: 'working',
+      context: { answer: 42 },
+      states: {
+        working: { on: { finish: 'done' } },
+        done: {
+          type: 'final',
+          data: (context: { answer: number }) => ({ result: context.answer }),
+        },
+      },
+    });
+
+    const xJogMachine = new XJogMachine(xJog, machine);
+    const parentRef = { machineId: 'parent-machine', chartId: 'parent-chart' };
+    const chart = await xJogMachine.createChart({ parentRef });
+
+    await chart.send('finish');
+
+    expect(xJog.sendEvent).toHaveBeenCalledTimes(1);
+    const [sentRef, sentEvent] = (xJog.sendEvent as jest.Mock).mock.calls[0];
+    expect(sentRef).toEqual(parentRef);
+    expect(sentEvent.type).toBe(`done.invoke.${chart.id}`);
+    expect(sentEvent.data).toEqual({ result: 42 });
+    expect(typeof (sentEvent.data as any)?.then).not.toBe('function');
+  });
+});
