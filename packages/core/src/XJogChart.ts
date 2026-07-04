@@ -16,27 +16,27 @@ import {
 import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
 import { concat, filter, from, map, type Observable, of } from 'rxjs';
 import {
-  type ActionObject,
   type ActionFunction,
+  type ActionObject,
   ActionTypes,
-  type BaseActionObject,
   type ActivityActionObject,
   type AnyEventObject,
+  type BaseActionObject,
   type CancelAction,
-  type LogActionObject,
   type DelayFunctionMap,
   type Event,
   type EventObject,
   Interpreter,
   type InvokeCallback,
   type InvokeDefinition,
+  type LogActionObject,
   type Observer,
   type SCXML,
   type SendActionObject,
   type Spawnable,
   State,
-  type StateNode,
   type StateMachine,
+  type StateNode,
   type StateNodeConfig,
   type StateSchema,
   type Subscribable,
@@ -60,7 +60,7 @@ import {
   resolveXJogCreateStateChange,
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
-  XJogStateSnapshot,
+  type XJogStateSnapshot,
 } from './resolveXJogStateChange';
 
 import type { XJog } from './XJog';
@@ -100,15 +100,15 @@ export type XJogSendAction<
  * @group XJog
  */
 export class XJogChart<
-  TContext = any,
-  TStateSchema extends StateSchema = any,
-  TEvent extends EventObject = EventObject,
-  TTypeState extends Typestate<TContext> = {
-    value: any;
-    context: TContext;
-  },
-  TEmitted = any,
->
+    TContext = any,
+    TStateSchema extends StateSchema = any,
+    TEvent extends EventObject = EventObject,
+    TTypeState extends Typestate<TContext> = {
+      value: any;
+      context: TContext;
+    },
+    TEmitted = any,
+  >
   extends XJogLogEmitter
   implements ChartReference
 {

@@ -1,4 +1,4 @@
-import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
+import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 import { pickIntegerOption } from '@samihult/xjog-util';
 
 /**

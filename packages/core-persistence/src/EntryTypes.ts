@@ -1,5 +1,5 @@
-import { EventObject, SCXML, StateConfig } from 'xstate';
-import { ChartReference, ActivityRef } from '@samihult/xjog-util';
+import type { ActivityRef, ChartReference } from '@samihult/xjog-util';
+import type { EventObject, SCXML, StateConfig } from 'xstate';
 
 /**
  * Row in the `instances` table as returned by a persistence adapter.

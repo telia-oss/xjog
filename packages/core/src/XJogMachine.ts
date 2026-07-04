@@ -1,31 +1,27 @@
-import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import { Mutex, MutexInterface, withTimeout } from 'async-mutex';
-
+import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 import {
   getCorrelationIdentifier,
-  LogFields,
+  type LogFields,
   XJogLogEmitter,
-  XJogStateChange,
+  type XJogStateChange,
 } from '@samihult/xjog-util';
-
-import {
+import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
+import { filter, type Observable } from 'rxjs';
+import type {
   DefaultContext,
   EventObject,
   StateMachine,
   StateSchema,
   Typestate,
 } from 'xstate';
-
-import { XJogChartCreationOptions } from './XJogChartCreationOptions';
+import type { XJog } from './XJog';
 import { XJogChart } from './XJogChart';
-import { XJog } from './XJog';
-
+import type { XJogChartCreationOptions } from './XJogChartCreationOptions';
 import {
-  XJogMachineOptions,
-  ResolvedXJogMachineOptions,
+  type ResolvedXJogMachineOptions,
   resolveXJogMachineOptions,
+  type XJogMachineOptions,
 } from './XJogMachineOptions';
-import { filter, Observable } from 'rxjs';
 
 /**
  * Options for activity spawning

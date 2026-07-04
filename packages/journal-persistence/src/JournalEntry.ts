@@ -1,33 +1,33 @@
 import type {
-	ChartReference,
-	XJogStateChangeAction,
-} from "@samihult/xjog-util";
-import type { Operation } from "rfc6902";
-import type { EventObject, StateValue } from "xstate";
+  ChartReference,
+  XJogStateChangeAction,
+} from '@samihult/xjog-util';
+import type { Operation } from 'rfc6902';
+import type { EventObject, StateValue } from 'xstate';
 
 export type JournalEntry = {
-	id: number;
-	timestamp: number;
-	ref: ChartReference;
+  id: number;
+  timestamp: number;
+  ref: ChartReference;
 
-	event: EventObject | null;
-	state: StateValue | null;
-	context: any | null;
-	actions: XJogStateChangeAction[] | null;
+  event: EventObject | null;
+  state: StateValue | null;
+  context: any | null;
+  actions: XJogStateChangeAction[] | null;
 
-	stateDelta: Operation[];
-	contextDelta: Operation[];
+  stateDelta: Operation[];
+  contextDelta: Operation[];
 };
 
 export type JournalEntryAutoFields = {
-	id: number;
-	timestamp: number;
+  id: number;
+  timestamp: number;
 };
 
 export type JournalEntryInsertFields = {
-	ref: ChartReference;
-	event: EventObject | null;
-	stateDelta: Operation[];
-	contextDelta: Operation[];
-	actions: XJogStateChangeAction[] | null;
+  ref: ChartReference;
+  event: EventObject | null;
+  stateDelta: Operation[];
+  contextDelta: Operation[];
+  actions: XJogStateChangeAction[] | null;
 };

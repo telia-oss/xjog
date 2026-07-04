@@ -1,4 +1,4 @@
-export const LogLevelNames = new Array<string>();
+export const LogLevelNames: string[] = [];
 
 LogLevelNames[10] = 'trace';
 LogLevelNames[20] = 'debug';

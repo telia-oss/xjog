@@ -1,3 +1,3 @@
-import { XJogStateChange } from './XJogStateChange';
+import type { XJogStateChange } from './XJogStateChange';
 
 export type UpdateHook = (change: XJogStateChange) => void | Promise<void>;

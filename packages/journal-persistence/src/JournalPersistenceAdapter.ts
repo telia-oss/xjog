@@ -1,26 +1,23 @@
-import { StateValue } from 'xstate';
-import { createPatch } from 'rfc6902';
-import { from, Observable, Subject, filter } from 'rxjs';
-import { EventObject, StateSchema, Typestate } from 'xstate/lib/types';
-
 import {
-  getCorrelationIdentifier,
   AbstractPersistenceAdapter,
-  ChartReference,
-  XJogStateChangeAction,
+  type ChartReference,
+  getCorrelationIdentifier,
+  type XJogStateChangeAction,
 } from '@samihult/xjog-util';
-
+import { createPatch } from 'rfc6902';
+import { filter, from, type Observable, Subject } from 'rxjs';
+import type { StateValue } from 'xstate';
+import type { EventObject, StateSchema, Typestate } from 'xstate/lib/types';
+import type { FullStateEntry } from './FullStateEntry';
+import type { FullStateQuery } from './FullStateQuery';
 import { fullStateFilterByQuery } from './fullStateFilterByQuery';
-import { journalFilterByQuery } from './journalFilterByQuery';
-import { FullStateQuery } from './FullStateQuery';
-import { FullStateEntry } from './FullStateEntry';
-import { JournalQuery } from './JournalQuery';
-
-import {
+import type {
   JournalEntry,
   JournalEntryAutoFields,
   JournalEntryInsertFields,
 } from './JournalEntry';
+import type { JournalQuery } from './JournalQuery';
+import { journalFilterByQuery } from './journalFilterByQuery';
 
 /**
  * Abstract adapter class for XJog journal persistence.

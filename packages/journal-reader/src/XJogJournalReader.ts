@@ -1,16 +1,15 @@
-import { XJogLogEmitter, nullSafeApplyJsonDiff } from '@samihult/xjog-util';
-import { Observable, from, concat, concatMap } from 'rxjs';
-import { EventObject } from 'xstate';
-
-import {
-  JournalPersistenceAdapter,
-  FullStateQuery,
-  JournalQuery,
-  JournalEntry,
+import type {
   FullStateEntry,
+  FullStateQuery,
+  JournalEntry,
+  JournalPersistenceAdapter,
+  JournalQuery,
 } from '@samihult/xjog-journal-persistence';
+import { nullSafeApplyJsonDiff, XJogLogEmitter } from '@samihult/xjog-util';
+import { concat, concatMap, from, type Observable } from 'rxjs';
+import type { EventObject } from 'xstate';
 
-import { MergedJournalEntry } from './MergedJournalEntry';
+import type { MergedJournalEntry } from './MergedJournalEntry';
 
 export class XJogJournalReader extends XJogLogEmitter {
   public readonly component = 'journal/reader';

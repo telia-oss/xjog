@@ -1,21 +1,19 @@
-import { toEventObject } from 'xstate/lib/utils';
-import { ActionTypes } from 'xstate/lib/types';
-
 import {
+  type ChartReference,
+  XJogActionTypes,
+  type XJogStateChange,
+  type XJogStateChangeAction,
+  type XJogStateChangeState,
+} from '@samihult/xjog-util';
+import type {
   BaseActionObject,
   EventObject,
   State,
   StateSchema,
   Typestate,
 } from 'xstate';
-
-import {
-  ChartReference,
-  XJogStateChange,
-  XJogStateChangeState,
-  XJogActionTypes,
-  XJogStateChangeAction,
-} from '@samihult/xjog-util';
+import { ActionTypes } from 'xstate/lib/types';
+import { toEventObject } from 'xstate/lib/utils';
 
 /**
  * Minimal slice of an xstate {@link State} that {@link mapState} reads. Callers
@@ -136,7 +134,7 @@ export function resolveXJogDeleteStateChange<
 export function mapActions(
   actions: BaseActionObject[],
 ): XJogStateChangeAction[] {
-  // @ts-ignore
+  // @ts-expect-error
   return actions.map((action) => {
     switch (action.type) {
       case ActionTypes.Send:

@@ -21,8 +21,9 @@
     "build:bin": "pnpm exec tsc",
     "build:files": "pnpm exec cpx-fixed 'src/**/*.sql' lib",
     "clean": "rm -rf node_modules lib",
-    "format": "pnpm exec prettier --write 'src/**/*.ts'",
-    "lint": "pnpm exec eslint src/**/*.ts && pnpm exec prettier --check src",
+    "format": "pnpm exec biome format --write .",
+    "lint": "pnpm exec biome ci .",
+    "lint:fix": "pnpm exec biome check --write .",
     "prePublishOnly": "pnpm run build",
     "test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest"
   },

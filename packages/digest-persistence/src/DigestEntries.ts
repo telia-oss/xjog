@@ -1,4 +1,4 @@
-import { DigestEntry } from './DigestEntry';
+import type { DigestEntry } from './DigestEntry';
 
 export type DigestEntries = {
   [key: string]: DigestEntry;

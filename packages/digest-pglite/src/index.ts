@@ -1,2 +1,2 @@
-export * from './PGliteDigestRow';
 export * from './PGliteDigestPersistenceAdapter';
+export * from './PGliteDigestRow';

@@ -1,8 +1,7 @@
 import EventEmitter from 'events';
-
-import { logEmit } from './logEmit';
-import { LogFields } from './Logging';
+import type { LogFields } from './Logging';
 import { LogLevels } from './LogLevels';
+import { logEmit } from './logEmit';
 
 export abstract class XJogLogEmitter extends EventEmitter {
   /**

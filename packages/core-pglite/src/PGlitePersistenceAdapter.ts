@@ -1,26 +1,29 @@
 export type { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
-import { PGlite, PGliteOptions, Transaction } from '@electric-sql/pglite';
+
+import {
+  PGlite,
+  type PGliteOptions,
+  type Transaction,
+} from '@electric-sql/pglite';
+import {
+  type PersistedChart,
+  type PersistedDeferredEvent,
+  PersistenceAdapter,
+} from '@samihult/xjog-core-persistence';
+import {
+  ChartIdentifier,
+  type ChartReference,
+  getCorrelationIdentifier,
+} from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import path from 'path';
 
-import {
-  getCorrelationIdentifier,
-  ChartIdentifier,
-  ChartReference,
-} from '@samihult/xjog-util';
-
-import {
-  PersistenceAdapter,
-  PersistedChart,
-  PersistedDeferredEvent,
-} from '@samihult/xjog-core-persistence';
-
-import {
-  State,
+import type {
   EventObject,
+  State,
+  StateConfig,
   StateSchema,
   Typestate,
-  StateConfig,
 } from 'xstate';
 
 /**
