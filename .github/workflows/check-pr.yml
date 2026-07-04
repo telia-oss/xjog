@@ -61,4 +61,8 @@ jobs:
         run: pnpm -r run lint
 
       - name: Run tests
-        run: pnpm exec turbo run test
+        # Serialize package test tasks: each PGlite/WASM-backed suite is
+        # CPU-heavy on cold start, and running several at once on the small CI
+        # runner starves them into 5s test timeouts. One package at a time keeps
+        # each suite fast. Local dev keeps full turbo concurrency.
+        run: pnpm exec turbo run test --concurrency=1
