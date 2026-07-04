@@ -27,6 +27,7 @@
     "build:files": "pnpm exec cpx-fixed 'src/**/*.sql' lib",
     "prePublishOnly": "pnpm run build",
     "clean": "rm -rf node_modules lib",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' pnpm exec jest --config jestconfig.js --passWithNoTests",
     "lint": "pnpm exec biome ci .",
     "lint:fix": "pnpm exec biome check --write .",
     "format": "pnpm exec biome format --write ."
