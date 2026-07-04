@@ -12,8 +12,8 @@
 		"harel",
 		"xstate"
 	],
-	"repository": "https://github.com/samihult/xjog",
-	"homepage": "https://www.xjog.io/",
+	"repository": "https://github.com/telia-oss/xjog",
+	"homepage": "https://github.com/telia-oss/xjog",
 	"author": "Sami Hult <sami.hult@gmail.com>",
 	"license": "MIT",
 	"private": false,
@@ -45,5 +45,9 @@
 	"gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
 	"peerDependencies": {
 		"rxjs": "^7.8.2"
+	},
+	"publishConfig": {
+		"registry": "https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/",
+		"access": "restricted"
 	}
 }
