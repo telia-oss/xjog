@@ -46,11 +46,23 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
 
+      - name: Cache turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Run build
-        run: pnpm lerna run build
+        run: pnpm exec turbo run build
 
       - name: Run lint
-        run: pnpm lerna run lint
+        run: pnpm -r run lint
 
       - name: Run tests
-        run: pnpm lerna run test
+        # Serialize package test tasks: each PGlite/WASM-backed suite is
+        # CPU-heavy on cold start, and running several at once on the small CI
+        # runner starves them into 5s test timeouts. One package at a time keeps
+        # each suite fast. Local dev keeps full turbo concurrency.
+        run: pnpm exec turbo run test --concurrency=1

@@ -13,6 +13,10 @@ overrides:
   piscina: '>=4.9.3'
   undici: '>=6.27.0'
   js-yaml: '>=4.2.0'
+  # Changesets' transitive read-yaml-file@1.x calls js-yaml v3's `safeLoad`,
+  # removed in v4. Scope js-yaml back to patched 3.14.x for that path only, so the
+  # tree-wide v4 pin above still holds everywhere else. (Dev-only, release-time tool.)
+  'read-yaml-file>js-yaml': ^3.14.1
 
 # pnpm 11 replaced onlyBuiltDependencies with allowBuilds.
 allowBuilds:

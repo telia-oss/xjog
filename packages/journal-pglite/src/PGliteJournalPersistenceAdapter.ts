@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { PGlite, type PGliteOptions } from '@electric-sql/pglite';
 import {
   type FullStateEntry,
@@ -13,7 +14,6 @@ import type {
   XJogStateChangeAction,
 } from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
-import path from 'path';
 import type { EventObject, StateValue } from 'xstate';
 import type { PGliteFullStateRow } from './PGliteFullStateRow';
 import type { PGliteJournalRow } from './PGliteJournalRow';
@@ -243,7 +243,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     escaped += "'";
 
     if (hasBackslash === true) {
-      escaped = ' E' + escaped;
+      escaped = ` E${escaped}`;
     }
 
     return escaped;
@@ -538,7 +538,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     cid?: string,
   ): Promise<void> {
     // TODO: Figure out what data to pass in here
-    const now = new Date().getTime();
+    const now = Date.now();
     const entry = await this.updateFullState({
       id: 1,
       created: now,

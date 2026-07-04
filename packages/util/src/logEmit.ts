@@ -1,4 +1,4 @@
-import type EventEmitter from 'events';
+import type EventEmitter from 'node:events';
 
 import { LogLevels } from './LogLevels';
 
@@ -7,7 +7,7 @@ export type CommonLogFields = { level: number; message: string };
 export function logEmit<LogFields extends Record<string, unknown>>(
   this: EventEmitter,
   ...payloads: Array<string | Partial<LogFields & CommonLogFields>>
-): void | typeof logEmit {
+): typeof logEmit {
   let message = null;
 
   const payload: Partial<LogFields & CommonLogFields> = {};

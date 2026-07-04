@@ -18,7 +18,7 @@ export class ChartIdentifier implements ChartReference {
 
       this.uri = new URL(
         `${ChartIdentifier.protocol}:/${ChartIdentifier.joinSegments(
-          host ? '/' + host : null,
+          host ? `/${host}` : null,
           machineId,
           chartId,
         )}`,
@@ -66,7 +66,7 @@ export class ChartIdentifier implements ChartReference {
     const path = normalizedSegments.join('/');
 
     const startsWithSlash = truthySegments[0].startsWith('/');
-    return startsWithSlash ? '/' + path : path;
+    return startsWithSlash ? `/${path}` : path;
   }
 
   private get pathSegments(): string[] {

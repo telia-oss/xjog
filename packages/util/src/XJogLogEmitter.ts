@@ -1,4 +1,4 @@
-import EventEmitter from 'events';
+import EventEmitter from 'node:events';
 import type { LogFields } from './Logging';
 import { LogLevels } from './LogLevels';
 import { logEmit } from './logEmit';

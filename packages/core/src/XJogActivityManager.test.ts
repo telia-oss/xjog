@@ -1,6 +1,6 @@
 import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import type { ActivityRef } from '@samihult/xjog-util';
+import { connectTestPersistence } from './pglite.testutil';
 import type { XJog } from './XJog';
 import { XJogActivityManager } from './XJogActivityManager';
 
@@ -42,7 +42,7 @@ function mockActivity(): [ActivityRef, () => void] {
 
 describe('XJogActivityManager', () => {
   it('Can register and unregister activities', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity] = mockActivity();
@@ -82,7 +82,7 @@ describe('XJogActivityManager', () => {
   // live subscription (whose closures retain the whole activity) behind for the
   // process lifetime — a slow heap leak proportional to checkout throughput.
   it('Unsubscribes and drops the subscription entry when an activity is stopped', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity, unsubscribe] = mockActivity();
@@ -101,7 +101,7 @@ describe('XJogActivityManager', () => {
   });
 
   it('Can relay events to activities', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [, activityManager] = mockXJogWithActivityManager(persistence);
 
     const [activity] = mockActivity();
@@ -122,7 +122,7 @@ describe('XJogActivityManager', () => {
   // process-level handler. The same shape applies to `next` (defer) and
   // `complete` (stopActivity).
   it('Does not leak unhandled rejections from sendEvent in the activity error subscriber', async () => {
-    const persistence = await PGlitePersistenceAdapter.connect();
+    const persistence = await connectTestPersistence();
     const [xJog, activityManager] = mockXJogWithActivityManager(persistence);
 
     let captured: any = null;
