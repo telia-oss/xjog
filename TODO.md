@@ -190,10 +190,12 @@ covered by pglite suites, so only the driver layer needs real-Postgres tests.
 
 ## Track C — Small independent items (good first tasks)
 
-- [ ] **C1. `core-sqlite` stub**: `packages/core-sqlite/` contains only
+- [x] **C1. `core-sqlite` stub**: `packages/core-sqlite/` contains only
       `package._json` and no `src/`. Decide: delete the directory and remove
       sqlite from the AGENTS.md/README architecture lists (recommended), or
       file a real implementation plan. Docs-only if deleting (`docs/` branch).
+      Resolved: directory deleted, AGENTS.md architecture bullet and
+      dependency-flow diagram updated to drop `core-sqlite`.
 - [ ] **C2. Rename shadowed variable in `XJogDeferredEventManager.ts`**:
       local variables named `PersistedDeferredEvent` shadow the imported type
       of the same name throughout the file (~15 usages). Rename the variables
