@@ -1,6 +1,6 @@
 {
 	"name": "@telia-oss/xjog",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "XState chart runner for long-running charts",
 	"engines": {
 		"npm": ">=8.19.4",
