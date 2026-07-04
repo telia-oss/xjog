@@ -1,6 +1,6 @@
-import { Operation } from 'rfc6902';
-import { FullStateEntry } from '@samihult/xjog-journal-persistence';
-import { StateValue } from 'xstate';
+import type { FullStateEntry } from '@samihult/xjog-journal-persistence';
+import type { Operation } from 'rfc6902';
+import type { StateValue } from 'xstate';
 
 export type MergedJournalEntry = FullStateEntry & {
   stateDelta: Operation[];

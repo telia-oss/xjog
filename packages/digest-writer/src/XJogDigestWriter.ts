@@ -1,10 +1,9 @@
-import { XJog } from '@samihult/xjog';
-import { XJogLogEmitter, XJogStateChange } from '@samihult/xjog-util';
-import { DigestPersistenceAdapter } from '@samihult/xjog-digest-persistence';
-
-import { XJogDigestWriterResolvedOptions } from './XJogDigestWriterResolvedOptions';
-import { XJogDigestWriterOptions } from './XJogDigestWriterOptions';
-import { DigestOperations } from './Digests';
+import type { XJog } from '@samihult/xjog';
+import type { DigestPersistenceAdapter } from '@samihult/xjog-digest-persistence';
+import { XJogLogEmitter, type XJogStateChange } from '@samihult/xjog-util';
+import type { DigestOperations } from './Digests';
+import type { XJogDigestWriterOptions } from './XJogDigestWriterOptions';
+import type { XJogDigestWriterResolvedOptions } from './XJogDigestWriterResolvedOptions';
 
 export class XJogDigestWriter extends XJogLogEmitter {
   public readonly component = 'digest/writer';

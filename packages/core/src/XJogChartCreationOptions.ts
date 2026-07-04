@@ -1,7 +1,7 @@
-import { ChartReference } from '@samihult/xjog-util';
+import type { ChartReference } from '@samihult/xjog-util';
 
-import { ResolvedXJogMachineOptions } from './XJogMachineOptions';
-import { ResolvedXJogOptions } from './XJogOptions';
+import type { ResolvedXJogMachineOptions } from './XJogMachineOptions';
+import type { ResolvedXJogOptions } from './XJogOptions';
 
 /**
  * @group XJog

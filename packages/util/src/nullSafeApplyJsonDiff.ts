@@ -1,4 +1,4 @@
-import { applyPatch, Operation } from 'rfc6902';
+import { applyPatch, type Operation } from 'rfc6902';
 
 export function nullSafeApplyJsonDiff<OutputType>(
   input: any,

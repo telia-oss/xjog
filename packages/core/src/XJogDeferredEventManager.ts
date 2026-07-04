@@ -1,18 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import {
   ChartOwnershipLostError,
-  PersistedDeferredEvent,
+  type PersistedDeferredEvent,
 } from '@samihult/xjog-core-persistence';
 
 import {
-  getCorrelationIdentifier,
+  type ActivityRef,
   ChartIdentifier,
-  ChartReference,
-  ActivityRef,
+  type ChartReference,
+  getCorrelationIdentifier,
 } from '@samihult/xjog-util';
-
-import { ResolvedXJogOptions } from './XJogOptions';
-import { XJog } from './XJog';
+import type { XJog } from './XJog';
+import type { ResolvedXJogOptions } from './XJogOptions';
 
 /**
  * @group Deferred events

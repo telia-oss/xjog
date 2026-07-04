@@ -24,8 +24,9 @@
 	"scripts": {
 		"build": "pnpm exec tsc",
 		"test": "NODE_OPTIONS='--experimental-vm-modules' pnpm exec jest --config jestconfig.js --passWithNoTests",
-		"lint": "pnpm exec eslint src/**/*.ts && pnpm exec prettier --check src",
-		"format": "pnpm exec prettier --write 'src/**/*.ts'",
+		"lint": "pnpm exec biome ci .",
+		"lint:fix": "pnpm exec biome check --write .",
+		"format": "pnpm exec biome format --write .",
 		"prepublishOnly": "pnpm run lint && pnpm run build && echo 'should also run: pnpm run test + pnpm run check'",
 		"clean": "rm -rf node_modules lib"
 	},

@@ -1,6 +1,6 @@
 import { pickIntegerOption } from '@samihult/xjog-util';
 
-import { ResolvedXJogOptions } from './XJogOptions';
+import type { ResolvedXJogOptions } from './XJogOptions';
 
 /**
  * Options for passing to {@link XJogMachine}

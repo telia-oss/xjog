@@ -1,6 +1,6 @@
-import { XJogStateChange } from '@samihult/xjog-util';
+import type { XJogStateChange } from '@samihult/xjog-util';
 
-import { DigestOperations } from './Digests';
+import type { DigestOperations } from './Digests';
 
 export type XJogDigestWriterOptions = {
   asyncOperation?: boolean;

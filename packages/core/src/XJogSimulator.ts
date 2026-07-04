@@ -1,4 +1,4 @@
-import { XJog } from './XJog';
+import type { XJog } from './XJog';
 
 export type SimulatorAction = 'skip' | 'fail' | 'delay';
 

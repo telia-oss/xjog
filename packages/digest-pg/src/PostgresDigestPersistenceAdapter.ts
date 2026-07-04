@@ -1,20 +1,19 @@
-import path from 'path';
-import { ChartReference } from '@samihult/xjog-util';
-import { Client, Pool, PoolConfig } from 'pg';
-import migrationRunner from 'node-pg-migrate';
-import createSubscriber from 'pg-listen';
-import bind from 'pg-bind';
-
 import {
+  type ChartReferenceWithTimestamp,
+  type DigestEntries,
+  type DigestEntry,
   DigestPersistenceAdapter,
-  DigestEntry,
-  DigestEntries,
-  DigestQuery,
-  Expression,
-  ChartReferenceWithTimestamp,
+  type DigestQuery,
+  type Expression,
 } from '@samihult/xjog-digest-persistence';
+import type { ChartReference } from '@samihult/xjog-util';
+import migrationRunner from 'node-pg-migrate';
+import path from 'path';
+import { Client, Pool, type PoolConfig } from 'pg';
+import bind from 'pg-bind';
+import createSubscriber from 'pg-listen';
 
-import { PostgresDigestRow } from './PostgresDigestRow';
+import type { PostgresDigestRow } from './PostgresDigestRow';
 
 /**
  * Use the static method `connect` to instantiate.
@@ -78,9 +77,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
   }
 
   public async disconnect(): Promise<void> {
-    await (
-      await this.stopObservingNewDigestEntries
-    )?.();
+    await (await this.stopObservingNewDigestEntries)?.();
     await this.pool.end();
   }
 
@@ -255,7 +252,7 @@ export class PostgresDigestPersistenceAdapter extends DigestPersistenceAdapter {
     }
 
     let queryString = '';
-    let bindings: Record<string, string | number> = {};
+    const bindings: Record<string, string | number> = {};
 
     const createBindingKey = (
       op: 'eq' | 're' | 'lt' | 'lte' | 'gt' | 'gte',

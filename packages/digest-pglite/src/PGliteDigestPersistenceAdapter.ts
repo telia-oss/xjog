@@ -1,18 +1,17 @@
-import path from 'path';
-import { ChartReference } from '@samihult/xjog-util';
-import { PGlite, PGliteOptions } from '@electric-sql/pglite';
-import migrationRunner from 'node-pg-migrate';
-
+import { PGlite, type PGliteOptions } from '@electric-sql/pglite';
 import {
+  type ChartReferenceWithTimestamp,
+  type DigestEntries,
+  type DigestEntry,
   DigestPersistenceAdapter,
-  DigestEntry,
-  DigestEntries,
-  DigestQuery,
-  Expression,
-  ChartReferenceWithTimestamp,
+  type DigestQuery,
+  type Expression,
 } from '@samihult/xjog-digest-persistence';
+import type { ChartReference } from '@samihult/xjog-util';
+import migrationRunner from 'node-pg-migrate';
+import path from 'path';
 
-import { PGliteDigestRow } from './PGliteDigestRow';
+import type { PGliteDigestRow } from './PGliteDigestRow';
 
 /**
  * Use the static method `connect` to instantiate.
@@ -64,9 +63,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
   }
 
   public async disconnect(): Promise<void> {
-    await (
-      await this.stopObservingNewDigestEntries
-    )?.();
+    await (await this.stopObservingNewDigestEntries)?.();
     await this.pool.close();
   }
 

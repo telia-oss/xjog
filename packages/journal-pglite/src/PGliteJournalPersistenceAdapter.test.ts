@@ -1,4 +1,4 @@
-import { XJogStateChangeAction } from '@samihult/xjog-util';
+import type { XJogStateChangeAction } from '@samihult/xjog-util';
 import { PGliteJournalPersistenceAdapter } from './PGliteJournalPersistenceAdapter';
 
 describe('PGliteJournalPersistenceAdapter', () => {

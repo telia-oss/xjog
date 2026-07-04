@@ -1,9 +1,9 @@
-import { XJog } from '@samihult/xjog';
-import { XJogLogEmitter, XJogStateChange } from '@samihult/xjog-util';
-import { JournalPersistenceAdapter } from '@samihult/xjog-journal-persistence';
+import type { XJog } from '@samihult/xjog';
+import type { JournalPersistenceAdapter } from '@samihult/xjog-journal-persistence';
+import { XJogLogEmitter, type XJogStateChange } from '@samihult/xjog-util';
 
-import { XJogJournalWriterOptions } from './XJogJournalWriterOptions';
-import { XJogJournalWriterResolvedOptions } from './XJogJournalWriterResolvedOptions';
+import type { XJogJournalWriterOptions } from './XJogJournalWriterOptions';
+import type { XJogJournalWriterResolvedOptions } from './XJogJournalWriterResolvedOptions';
 
 export class XJogJournalWriter extends XJogLogEmitter {
   public readonly component = 'journal/writer';

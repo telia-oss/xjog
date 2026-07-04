@@ -1,8 +1,7 @@
-import { EventObject, StateValue } from 'xstate';
-import { ActionTypes } from 'xstate/lib/types';
-
-import { XJogActionTypes } from './XJogActionTypes';
-import { ChartReference } from './ChartReference';
+import type { EventObject, StateValue } from 'xstate';
+import type { ActionTypes } from 'xstate/lib/types';
+import type { ChartReference } from './ChartReference';
+import type { XJogActionTypes } from './XJogActionTypes';
 
 export type XJogStateChangeSendAction = {
   type: ActionTypes.Send;

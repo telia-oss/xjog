@@ -1,16 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import {
-	type EventObject,
-	State,
-	type StateSchema,
-	type Typestate,
-} from 'xstate';
-
-import {
   AbstractPersistenceAdapter,
   type ChartReference,
   getCorrelationIdentifier,
 } from '@samihult/xjog-util';
+import {
+  type EventObject,
+  State,
+  type StateSchema,
+  type Typestate,
+} from 'xstate';
 
 import type { PersistedChart, PersistedDeferredEvent } from './EntryTypes';
 
@@ -515,13 +514,13 @@ export abstract class PersistenceAdapter<
       trace({ message: 'Marking all charts paused' });
       await this.markAllChartsPaused(connection);
 
-			// Bug fix: release deferred event locks left behind by instances that
-			// were killed without graceful shutdown. Without this, events locked
-			// by dead instance UUIDs are permanently stuck since new instances
-			// only query WHERE lock IS NULL (releaseAll/releaseAllDeferredEvents
-			// is only called from XJog.shutdown(), which never runs on SIGKILL).
-			trace({ message: 'Releasing all deferred event locks' });
-			await this.unmarkAllDeferredEventsForProcessing(connection);
+      // Bug fix: release deferred event locks left behind by instances that
+      // were killed without graceful shutdown. Without this, events locked
+      // by dead instance UUIDs are permanently stuck since new instances
+      // only query WHERE lock IS NULL (releaseAll/releaseAllDeferredEvents
+      // is only called from XJog.shutdown(), which never runs on SIGKILL).
+      trace({ message: 'Releasing all deferred event locks' });
+      await this.unmarkAllDeferredEventsForProcessing(connection);
 
       trace({ message: 'Adding the instance to the list' });
       await this.insertInstance(instanceId, connection);
@@ -541,7 +540,10 @@ export abstract class PersistenceAdapter<
    * non-violent counterpart of {@link overthrowOtherInstances}: no instance
    * is marked dying and no chart is paused. Reaps long-dead rows in passing.
    */
-  public async registerInstance(instanceId: string, cid: string): Promise<void> {
+  public async registerInstance(
+    instanceId: string,
+    cid: string,
+  ): Promise<void> {
     const trace = (args: Record<string, any>) =>
       this.trace({ cid, in: 'registerInstance', ...args });
 

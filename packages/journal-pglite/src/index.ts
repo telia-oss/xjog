@@ -1,3 +1,3 @@
-export * from './PGliteJournalRow';
 export * from './PGliteFullStateRow';
 export * from './PGliteJournalPersistenceAdapter';
+export * from './PGliteJournalRow';

@@ -1,22 +1,20 @@
-import path from 'path';
-import { ChartReference } from '@samihult/xjog-util';
-import { Client, PoolConfig } from 'pg';
-import migrationRunner from 'node-pg-migrate';
-import createSubscriber from 'pg-listen';
-import bind from 'pg-bind';
-
 import {
-  FullStateEntry,
-  FullStateQuery,
-  JournalEntry,
-  JournalEntryAutoFields,
-  JournalEntryInsertFields,
+  type FullStateEntry,
+  type FullStateQuery,
+  type JournalEntry,
+  type JournalEntryAutoFields,
+  type JournalEntryInsertFields,
   JournalPersistenceAdapter,
-  JournalQuery,
+  type JournalQuery,
 } from '@samihult/xjog-journal-persistence';
-
-import { PostgresJournalRow } from './PostgresJournalRow';
-import { PostgresFullStateRow } from './PostgresFullStateRow';
+import type { ChartReference } from '@samihult/xjog-util';
+import migrationRunner from 'node-pg-migrate';
+import path from 'path';
+import { Client, type PoolConfig } from 'pg';
+import bind from 'pg-bind';
+import createSubscriber from 'pg-listen';
+import type { PostgresFullStateRow } from './PostgresFullStateRow';
+import type { PostgresJournalRow } from './PostgresJournalRow';
 
 /**
  * Options for instantiating {@link PostgresJournalPersistenceAdapter}.
@@ -117,9 +115,7 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
   }
 
   public async disconnect(): Promise<void> {
-    await (
-      await this.stopObservingNewJournalEntries
-    )();
+    await (await this.stopObservingNewJournalEntries)();
 
     await this.subscriptionConnection.end();
     await this.updateConnection.end();

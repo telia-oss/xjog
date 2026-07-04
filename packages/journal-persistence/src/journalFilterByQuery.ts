@@ -1,5 +1,5 @@
-import { JournalQuery } from './JournalQuery';
-import { JournalEntry } from './JournalEntry';
+import type { JournalEntry } from './JournalEntry';
+import type { JournalQuery } from './JournalQuery';
 
 export function journalFilterByQuery(
   query?: JournalQuery,

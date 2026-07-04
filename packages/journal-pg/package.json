@@ -26,7 +26,10 @@
 		"build:bin": "pnpm exec tsc",
 		"build:files": "pnpm exec cpx-fixed 'src/**/*.sql' lib",
 		"prePublishOnly": "pnpm run build",
-		"clean": "rm -rf node_modules lib"
+		"clean": "rm -rf node_modules lib",
+		"lint": "pnpm exec biome ci .",
+		"lint:fix": "pnpm exec biome check --write .",
+		"format": "pnpm exec biome format --write ."
 	},
 	"dependencies": {
 		"@samihult/xjog-core-persistence": "workspace:^",

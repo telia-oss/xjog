@@ -1,12 +1,11 @@
 import {
   AbstractPersistenceAdapter,
-  ChartReference,
+  type ChartReference,
 } from '@samihult/xjog-util';
-
-import { DigestEntry } from './DigestEntry';
-import { DigestQuery } from './DigestQuery';
-import { DigestEntries } from './DigestEntries';
 import { Subject } from 'rxjs';
+import type { DigestEntries } from './DigestEntries';
+import type { DigestEntry } from './DigestEntry';
+import type { DigestQuery } from './DigestQuery';
 
 export type ChartReferenceWithTimestamp = ChartReference & {
   /** Milliseconds from epoch  */
@@ -51,7 +50,9 @@ export abstract class DigestPersistenceAdapter extends AbstractPersistenceAdapte
 
   public abstract readByChart(ref: ChartReference): Promise<DigestEntries>;
 
-  public abstract queryDigests(query: DigestQuery): Promise<ChartReferenceWithTimestamp[]>;
+  public abstract queryDigests(
+    query: DigestQuery,
+  ): Promise<ChartReferenceWithTimestamp[]>;
 
   public async clear(ref: ChartReference, keys: string[]): Promise<void> {
     for (const key of keys) {

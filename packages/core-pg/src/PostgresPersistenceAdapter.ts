@@ -1,26 +1,24 @@
-import { ClientConfig, Pool, PoolClient, PoolConfig } from 'pg';
-import migrationRunner from 'node-pg-migrate';
-import bind from 'pg-bind';
-import path from 'path';
-
 import {
-  getCorrelationIdentifier,
-  ChartIdentifier,
-  ChartReference,
-} from '@samihult/xjog-util';
-
-import {
+  type PersistedChart,
+  type PersistedDeferredEvent,
   PersistenceAdapter,
-  PersistedChart,
-  PersistedDeferredEvent,
 } from '@samihult/xjog-core-persistence';
-
 import {
-  State,
+  ChartIdentifier,
+  type ChartReference,
+  getCorrelationIdentifier,
+} from '@samihult/xjog-util';
+import migrationRunner from 'node-pg-migrate';
+import path from 'path';
+import { type ClientConfig, Pool, type PoolClient, type PoolConfig } from 'pg';
+import bind from 'pg-bind';
+
+import type {
   EventObject,
+  State,
+  StateConfig,
   StateSchema,
   Typestate,
-  StateConfig,
 } from 'xstate';
 
 /**
@@ -95,9 +93,7 @@ export class PostgresPersistenceAdapter extends PersistenceAdapter<PoolClient> {
     // TODO pass logging to the pool
     const pool = new Pool(poolConfiguration);
     const adapter = new PostgresPersistenceAdapter(pool, poolConfiguration);
-    pool.on('error', (err) =>
-      adapter.error('Pool emitted error', { err }),
-    );
+    pool.on('error', (err) => adapter.error('Pool emitted error', { err }));
 
     let migrationClient;
     try {

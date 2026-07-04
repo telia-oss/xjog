@@ -1,7 +1,7 @@
-import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-import { XJog } from './XJog';
-import { SimulatorRule, XJogSimulator } from './XJogSimulator';
+import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import type { XJog } from './XJog';
+import { type SimulatorRule, XJogSimulator } from './XJogSimulator';
 
 function mockXJogWithSimulator(
   persistence: PersistenceAdapter,

@@ -1,2 +1,2 @@
-export * from './PersistenceAdapter'
-export * from './EntryTypes'
+export * from './EntryTypes';
+export * from './PersistenceAdapter';

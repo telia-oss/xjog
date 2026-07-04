@@ -1,7 +1,7 @@
-import { Event, EventObject, SCXML, Subscribable } from 'xstate';
+import type { Event, EventObject, SCXML, Subscribable } from 'xstate';
 
 import { ChartIdentifier } from './ChartIdentifier';
-import { ChartReference } from './ChartReference';
+import type { ChartReference } from './ChartReference';
 
 // TODO this needs to change somehow
 

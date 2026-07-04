@@ -1,4 +1,4 @@
-import { ChartReference } from './ChartReference';
+import type { ChartReference } from './ChartReference';
 
 export class ChartIdentifier implements ChartReference {
   public static readonly protocol = 'xjog+chart';

@@ -1,4 +1,4 @@
-import { ChartReference } from '@samihult/xjog-util';
+import type { ChartReference } from '@samihult/xjog-util';
 
 export type FullStateQuery =
   | Array<ChartReference>

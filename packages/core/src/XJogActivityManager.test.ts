@@ -1,9 +1,8 @@
-import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-
-import { XJogActivityManager } from './XJogActivityManager';
-import { ActivityRef } from '@samihult/xjog-util';
-import { XJog } from './XJog';
+import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import type { ActivityRef } from '@samihult/xjog-util';
+import type { XJog } from './XJog';
+import { XJogActivityManager } from './XJogActivityManager';
 
 function mockXJogWithActivityManager(
   persistence: PersistenceAdapter,
@@ -61,7 +60,7 @@ describe('XJogActivityManager', () => {
 
     expect(activity.subscribe).toHaveBeenCalled();
     expect(activityManager.activityCount).toBe(1);
-    // @ts-ignore Private access
+    // @ts-expect-error Private access
     expect(activityManager.has(activity.owner!, activity.id)).toBe(true);
 
     await activityManager.stopAndUnregisteredActivity(activity);
@@ -73,7 +72,7 @@ describe('XJogActivityManager', () => {
 
     expect(activity.stop).toHaveBeenCalled();
     expect(activityManager.activityCount).toBe(0);
-    // @ts-ignore Private access
+    // @ts-expect-error Private access
     expect(activityManager.ongoingActivities.has(activity.id)).toBe(false);
   });
 
@@ -90,7 +89,7 @@ describe('XJogActivityManager', () => {
 
     await activityManager.registerActivity(activity);
 
-    // @ts-ignore Private access
+    // @ts-expect-error Private access
     const subscriptions = activityManager.ongoingActivitySubscriptions;
     expect(subscriptions.size).toBe(1);
 

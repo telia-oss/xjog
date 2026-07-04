@@ -1,43 +1,43 @@
 import type {
-	ChartReferenceWithTimestamp,
-	DigestPersistenceAdapter,
-	DigestQuery,
-} from "@samihult/xjog-digest-persistence";
-import { type ChartReference, XJogLogEmitter } from "@samihult/xjog-util";
-import { concat, concatMap, from, type Observable } from "rxjs";
+  ChartReferenceWithTimestamp,
+  DigestPersistenceAdapter,
+  DigestQuery,
+} from '@samihult/xjog-digest-persistence';
+import { type ChartReference, XJogLogEmitter } from '@samihult/xjog-util';
+import { concat, concatMap, from, type Observable } from 'rxjs';
 
 export class XJogDigestReader extends XJogLogEmitter {
-	public readonly component = "digest/reader";
+  public readonly component = 'digest/reader';
 
-	constructor(private readonly persistence: DigestPersistenceAdapter) {
-		super();
-	}
+  constructor(private readonly persistence: DigestPersistenceAdapter) {
+    super();
+  }
 
-	public async queryDigests(
-		query: DigestQuery,
-	): Promise<ChartReferenceWithTimestamp[]> {
-		return this.persistence.queryDigests(query);
-	}
+  public async queryDigests(
+    query: DigestQuery,
+  ): Promise<ChartReferenceWithTimestamp[]> {
+    return this.persistence.queryDigests(query);
+  }
 
-	public observeDigests(
-		query: DigestQuery,
-	): Observable<ChartReferenceWithTimestamp> {
-		return concat(
-			from(this.queryDigests(query)).pipe(
-				// From array to individual items
-				concatMap((refs: ChartReferenceWithTimestamp[]) => refs),
-			),
-			from(this.persistence.newDigestEntriesSubject).pipe(
-				concatMap((ref: ChartReference) => {
-					return this.persistence.queryDigests({
-						...query,
-						machineId: ref.machineId,
-						chartId: ref.chartId,
-					});
-				}),
-				// From array to individual items
-				concatMap((refs: ChartReferenceWithTimestamp[]) => refs),
-			),
-		);
-	}
+  public observeDigests(
+    query: DigestQuery,
+  ): Observable<ChartReferenceWithTimestamp> {
+    return concat(
+      from(this.queryDigests(query)).pipe(
+        // From array to individual items
+        concatMap((refs: ChartReferenceWithTimestamp[]) => refs),
+      ),
+      from(this.persistence.newDigestEntriesSubject).pipe(
+        concatMap((ref: ChartReference) => {
+          return this.persistence.queryDigests({
+            ...query,
+            machineId: ref.machineId,
+            chartId: ref.chartId,
+          });
+        }),
+        // From array to individual items
+        concatMap((refs: ChartReferenceWithTimestamp[]) => refs),
+      ),
+    );
+  }
 }

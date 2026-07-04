@@ -1,45 +1,41 @@
 import { randomUUID } from 'node:crypto';
-import { from, Observable, Subject } from 'rxjs';
-import { isPromiseLike, toSCXMLEvent } from 'xstate/lib/utils';
-import { PersistenceAdapter } from '@samihult/xjog-core-persistence';
-
+import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
 import {
+  type ActivityRef,
   ChartIdentifier,
-  ChartReference,
+  type ChartReference,
   getCorrelationIdentifier,
-  waitFor,
-  ActivityRef,
   isActivityRef,
+  type UpdateHook,
+  waitFor,
   XJogLogEmitter,
-  UpdateHook,
-  XJogStateChange,
+  type XJogStateChange,
 } from '@samihult/xjog-util';
-
+import { from, type Observable, Subject } from 'rxjs';
 import {
-  DefaultContext,
-  Event,
-  EventObject,
-  SCXML,
+  type DefaultContext,
+  type Event,
+  type EventObject,
+  type SCXML,
   SpecialTargets,
-  State,
-  StateMachine,
-  StateSchema,
-  Typestate,
+  type State,
+  type StateMachine,
+  type StateSchema,
+  type Typestate,
 } from 'xstate';
-
-import { XJogDeferredEventManager } from './XJogDeferredEventManager';
+import { isPromiseLike, toSCXMLEvent } from 'xstate/lib/utils';
 import { XJogActivityManager } from './XJogActivityManager';
-import { XJogMachineOptions } from './XJogMachineOptions';
-import { XJogStartupManager } from './XJogStartupManager';
-import { XJogSimulator } from './XJogSimulator';
+import type { XJogChart } from './XJogChart';
+import { XJogDeferredEventManager } from './XJogDeferredEventManager';
 import { XJogMachine } from './XJogMachine';
-import { XJogChart } from './XJogChart';
-
+import type { XJogMachineOptions } from './XJogMachineOptions';
 import {
-  XJogOptions,
+  type ResolvedXJogOptions,
   resolveXJogOptions,
-  ResolvedXJogOptions,
+  type XJogOptions,
 } from './XJogOptions';
+import { XJogSimulator } from './XJogSimulator';
+import { XJogStartupManager } from './XJogStartupManager';
 
 /**
  * Emits following events:
@@ -689,7 +685,7 @@ export class XJog extends XJogLogEmitter {
       this.recordExecutionDuration(op, performance.now() - startTime);
 
     if (isPromiseLike(returnValue)) {
-      // @ts-ignore Trust that it has `finally`
+      // @ts-expect-error Trust that it has `finally`
       return returnValue.finally(done) as unknown as T;
     }
 

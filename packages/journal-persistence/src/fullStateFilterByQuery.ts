@@ -1,5 +1,5 @@
-import { FullStateQuery } from './FullStateQuery';
-import { FullStateEntry } from './FullStateEntry';
+import type { FullStateEntry } from './FullStateEntry';
+import type { FullStateQuery } from './FullStateQuery';
 
 export function fullStateFilterByQuery(
   query?: FullStateQuery,

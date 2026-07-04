@@ -1,21 +1,22 @@
-import { EventObject, StateValue } from 'xstate';
-import { ChartReference, XJogStateChangeAction } from '@samihult/xjog-util';
+import { PGlite, type PGliteOptions } from '@electric-sql/pglite';
+import {
+  type FullStateEntry,
+  type FullStateQuery,
+  type JournalEntry,
+  type JournalEntryAutoFields,
+  type JournalEntryInsertFields,
+  JournalPersistenceAdapter,
+  type JournalQuery,
+} from '@samihult/xjog-journal-persistence';
+import type {
+  ChartReference,
+  XJogStateChangeAction,
+} from '@samihult/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import path from 'path';
-
-import {
-  FullStateEntry,
-  FullStateQuery,
-  JournalEntry,
-  JournalEntryAutoFields,
-  JournalEntryInsertFields,
-  JournalPersistenceAdapter,
-  JournalQuery,
-} from '@samihult/xjog-journal-persistence';
-
-import { PGlite, PGliteOptions } from '@electric-sql/pglite';
-import { PGliteFullStateRow } from './PGliteFullStateRow';
-import { PGliteJournalRow } from './PGliteJournalRow';
+import type { EventObject, StateValue } from 'xstate';
+import type { PGliteFullStateRow } from './PGliteFullStateRow';
+import type { PGliteJournalRow } from './PGliteJournalRow';
 
 /**
  * Options for instantiating {@link PGliteJournalPersistenceAdapter}.
@@ -84,9 +85,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   }
 
   public async disconnect(): Promise<void> {
-    await (
-      await this.stopObservingNewJournalEntries
-    )();
+    await (await this.stopObservingNewJournalEntries)();
 
     await this.connection.close();
   }

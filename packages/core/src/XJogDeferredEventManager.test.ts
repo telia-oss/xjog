@@ -1,15 +1,14 @@
-import { toSCXMLEvent } from 'xstate/lib/utils';
-
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
 import {
   ChartOwnershipLostError,
-  PersistenceAdapter,
+  type PersistenceAdapter,
 } from '@samihult/xjog-core-persistence';
-import { waitFor } from '@samihult/xjog-util';
 
+import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { waitFor } from '@samihult/xjog-util';
+import { toSCXMLEvent } from 'xstate/lib/utils';
+import type { XJog } from './XJog';
 import { XJogDeferredEventManager } from './XJogDeferredEventManager';
-import { ResolvedXJogOptions } from './XJogOptions';
-import { XJog } from './XJog';
+import type { ResolvedXJogOptions } from './XJogOptions';
 
 function createInMemoryPersistence(
   delayTakeUpcomingByMs = 0,
@@ -155,7 +154,7 @@ describe('XJogDeferredEventManager', () => {
       // Start scheduling like XJog.start would
       await deferredEventManager.scheduleUpcoming();
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       const scheduledEvent = deferredEventManager.deferredEvents[0];
       expect(scheduledEvent).toMatchObject({
         ref,
@@ -169,7 +168,7 @@ describe('XJogDeferredEventManager', () => {
         scheduledEvent.delay,
       );
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(1);
 
       //expect(persistence.deferredEvents.rows.length).toBe(1);
@@ -187,12 +186,12 @@ describe('XJogDeferredEventManager', () => {
       );
 
       expect(deferredEventManager.deferredEventCount).toBe(0);
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(0);
 
       //expect(persistence.deferredEvents.rows.length).toBe(0);
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       xJog.dying = true;
 
       // After the interval, a new attempt to read scheduled events from the
@@ -200,7 +199,7 @@ describe('XJogDeferredEventManager', () => {
       // flag of death is flying.
       await waitFor(interval);
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventHandlerTimer).toBe(null);
     } finally {
       await deferredEventManager.releaseAll();
@@ -240,13 +239,13 @@ describe('XJogDeferredEventManager', () => {
 
       // No events should come up in the first round
       expect(deferredEventManager.deferredEventCount).toBe(0);
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(0);
 
       // The next batch is read after the interval
       await waitFor(interval);
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       const scheduledEvent = deferredEventManager.deferredEvents[0];
       expect(scheduledEvent).toMatchObject({
         ref: {
@@ -262,7 +261,7 @@ describe('XJogDeferredEventManager', () => {
         scheduledEvent.delay,
       );
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(1);
 
       // The event is sent after the remaining time
@@ -275,7 +274,7 @@ describe('XJogDeferredEventManager', () => {
         expect.stringMatching(/.+/),
       );
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       xJog.dying = true;
 
       // Wait for the instance to die naturally
@@ -321,7 +320,7 @@ describe('XJogDeferredEventManager', () => {
       await deferredEventManager.scheduleUpcoming();
 
       expect(deferredEventManager.deferredEventCount).toBe(1);
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(1);
 
       //expect(persistence.deferredEvents.rows.length).toBe(1);
@@ -329,7 +328,7 @@ describe('XJogDeferredEventManager', () => {
       await deferredEventManager.cancel('eventToBeCanceled');
 
       expect(deferredEventManager.deferredEventCount).toBe(0);
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(0);
 
       //expect(persistence.deferredEvents.rows.length).toBe(0);
@@ -339,7 +338,7 @@ describe('XJogDeferredEventManager', () => {
 
       expect(xJog.sendEvent).not.toHaveBeenCalled();
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       xJog.dying = true;
 
       // Wait for the instance to die naturally
@@ -382,13 +381,13 @@ describe('XJogDeferredEventManager', () => {
       // Event's been picked up and locked by this instance
       //expect(firstDeferredEventRow.lock).toBe(xJog.id);
 
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       xJog.dying = true;
       // Call releaseAll as XJog.shutdown would
       await deferredEventManager.releaseAll();
 
       expect(deferredEventManager.deferredEventCount).toBe(0);
-      // @ts-ignore Private access
+      // @ts-expect-error Private access
       expect(deferredEventManager.deferredEventTimers.size).toBe(0);
 
       //expect(persistence.deferredEvents.rows.length).toBe(1);
@@ -435,7 +434,7 @@ describe('XJogDeferredEventManager', () => {
         expect.stringMatching(/.+/),
       );
     } finally {
-      // @ts-ignore test-only shutdown flag
+      // @ts-expect-error test-only shutdown flag
       xJog.dying = true;
       await deferredEventManager.releaseAll();
     }
@@ -502,7 +501,7 @@ describe('XJogDeferredEventManager', () => {
       expect(persistence.takeUpcomingDeferredEvents).toHaveBeenCalledTimes(2);
       expect(maxInFlightReads).toBe(1);
     } finally {
-      // @ts-ignore test-only shutdown flag
+      // @ts-expect-error test-only shutdown flag
       xJog.dying = true;
       await deferredEventManager.releaseAll();
     }
@@ -602,7 +601,7 @@ describe('XJogDeferredEventManager', () => {
           clearTimeout(timerB);
         }
       } finally {
-        // @ts-ignore test-only shutdown flag
+        // @ts-expect-error test-only shutdown flag
         xJog.dying = true;
         await deferredEventManager.releaseAll();
       }
@@ -680,7 +679,7 @@ describe('XJogDeferredEventManager', () => {
         expect(remainingIds).toContain(entryY.id);
       } finally {
         jest.useRealTimers();
-        // @ts-ignore test-only shutdown flag
+        // @ts-expect-error test-only shutdown flag
         xJog.dying = true;
         await deferredEventManager.releaseAll();
       }
@@ -730,7 +729,7 @@ describe('XJogDeferredEventManager: ownership loss during deferred send', () => 
       // And it must NOT be treated as delivered.
       expect(persistence.removeDeferredEvent).not.toHaveBeenCalled();
     } finally {
-      // @ts-ignore test-only shutdown flag
+      // @ts-expect-error test-only shutdown flag
       xJog.dying = true;
       await deferredEventManager.releaseAll();
     }
