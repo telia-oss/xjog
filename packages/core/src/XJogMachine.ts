@@ -53,10 +53,11 @@ export class XJogMachine<
   public readonly persistence: PersistenceAdapter;
 
   private cacheMutex: MutexInterface;
-  private chartCacheKeys = new Set<string>();
-  private chartCacheStore: {
-    [chartId: string]: XJogChart<TContext, TStateSchema, TEvent, TTypeState>;
-  } = {};
+  /** Insertion-ordered chart cache; the first key is the oldest entry. */
+  private chartCache = new Map<
+    string,
+    XJogChart<TContext, TStateSchema, TEvent, TTypeState>
+  >();
 
   public constructor(
     public readonly xJog: XJog,
@@ -97,7 +98,7 @@ export class XJogMachine<
     this.trace({ in: 'cleanCache' }, 'Cleaning cache');
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
     try {
-      // Evict oldest-first (Set preserves insertion order), but only charts
+      // Evict oldest-first (Map preserves insertion order), but only charts
       // that are currently idle. evictCacheEntry awaits the chart's mutex
       // release, and cleanCache runs while holding cacheMutex — so evicting a
       // busy chart would stall every concurrent getChart behind that chart's
@@ -107,11 +108,11 @@ export class XJogMachine<
       // release after cleanCache returns. A busy chart is left cached and
       // reconsidered on the next pass once idle, so the cache may briefly
       // exceed cacheSize by the number of concurrently-busy charts.
-      for (const cacheKey of this.chartCacheKeys) {
-        if (this.chartCacheKeys.size <= this.options.cacheSize) {
+      for (const cacheKey of this.chartCache.keys()) {
+        if (this.chartCache.size <= this.options.cacheSize) {
           break;
         }
-        if (this.chartCacheStore[cacheKey]?.chartMutex.isLocked()) {
+        if (this.chartCache.get(cacheKey)?.chartMutex.isLocked()) {
           continue;
         }
         this.trace({ in: 'cleanCache', key: cacheKey }, 'Removing oldest idle');
@@ -129,8 +130,7 @@ export class XJogMachine<
     this.trace({ in: 'refreshCache', chartId: chart.id }, 'Refreshing cache');
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
     try {
-      this.chartCacheKeys.add(chart.id);
-      this.chartCacheStore[chart.id] = chart;
+      this.chartCache.set(chart.id, chart);
       await this.cleanCache(false);
     } finally {
       releaseMutex?.();
@@ -141,10 +141,10 @@ export class XJogMachine<
     const releaseMutex = mutex ? await this.cacheMutex.acquire() : null;
     try {
       this.trace({ in: 'evictCacheEntry', chartId }, 'Evicting cache entry');
-      if (this.chartCacheStore[chartId]) {
-        await this.chartCacheStore[chartId].wait();
-        this.chartCacheKeys.delete(chartId);
-        delete this.chartCacheStore[chartId];
+      const chart = this.chartCache.get(chartId);
+      if (chart) {
+        await chart.wait();
+        this.chartCache.delete(chartId);
       }
     } finally {
       releaseMutex?.();
@@ -212,9 +212,10 @@ export class XJogMachine<
       const releaseMutex = await this.cacheMutex.acquire();
 
       try {
-        if (this.chartCacheStore[chartId]) {
+        const cached = this.chartCache.get(chartId);
+        if (cached) {
           trace('Cache hit');
-          return this.chartCacheStore[chartId];
+          return cached;
         }
 
         trace('Cache miss, loading');
