@@ -286,13 +286,15 @@ export class XJogActivityManager {
 
         const releaseDbMutex = await this.activityDbMutex.acquire();
 
-        await this.xJog.persistence.registerActivity(
-          activity.owner,
-          activity.id,
-          cid,
-        );
-
-        releaseDbMutex();
+        try {
+          await this.xJog.persistence.registerActivity(
+            activity.owner,
+            activity.id,
+            cid,
+          );
+        } finally {
+          releaseDbMutex();
+        }
 
         if (activity.autoForward) {
           trace({
@@ -521,13 +523,15 @@ export class XJogActivityManager {
 
       const releaseMutex = await this.activityDbMutex.acquire();
 
-      await this.xJog.persistence.unregisterActivity(
-        activity.owner,
-        activity.id,
-        cid,
-      );
-
-      releaseMutex();
+      try {
+        await this.xJog.persistence.unregisterActivity(
+          activity.owner,
+          activity.id,
+          cid,
+        );
+      } finally {
+        releaseMutex();
+      }
     } else {
       trace({
         level: 'warning',

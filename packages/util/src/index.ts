@@ -1,6 +1,5 @@
 export * from './AbstractPersistenceAdapter';
 export * from './ActivityRef';
-export * from './BurstController';
 export * from './ChartIdentifier';
 export * from './ChartReference';
 export * from './correlationIdentifier';
@@ -10,6 +9,7 @@ export * from './LogLevels';
 export * from './logEmit';
 export * from './nullSafeApplyJsonDiff';
 export * from './pickIntegerOption';
+export * from './positionalParameters';
 export * from './UpdateHook';
 export * from './waitFor';
 export * from './XJogActionTypes';

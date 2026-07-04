@@ -404,7 +404,7 @@ export class XJog extends XJogLogEmitter {
     cid = getCorrelationIdentifier(),
   ): Promise<void> {
     return this.timeExecution('xjog.drop external id', async () => {
-      this.persistence?.dropExternalId(key, value, cid);
+      await this.persistence?.dropExternalId(key, value, cid);
     });
   }
 
@@ -559,10 +559,7 @@ export class XJog extends XJogLogEmitter {
       }
 
       // Target is probable an activity, check if exists
-      else if (
-        typeof to === 'string' &&
-        typeof this.activityManager.has(sender, to)
-      ) {
+      else if (typeof to === 'string' && this.activityManager.has(sender, to)) {
         return this.timeExecution('xjog.send to.activity', async () => {
           trace('Target is an activity, sending the event');
           this.activityManager.sendTo(sender, to, event, cid);
@@ -727,14 +724,41 @@ export class XJog extends XJogLogEmitter {
   }
 
   /**
-   * The given routine is executed as part of the state update transaction.
-   * If it fails, the transaction is rolled back and an error is thrown for
-   * any send functions.
+   * The given routine is called for every state change (create, update,
+   * delete), after the change has been persisted but before actions execute.
+   * Hooks are best-effort: a rejection is logged and does not roll back the
+   * transition or fail the send.
    *
    * @returns Uninstaller function
    */
   public installUpdateHook(hook: UpdateHook): () => void {
     this.updateHooks.add(hook);
     return () => this.updateHooks.delete(hook);
+  }
+
+  /**
+   * Invokes every installed update hook for a state change, best-effort: each
+   * hook is wrapped so that both synchronous throws and rejected promises are
+   * caught and handed to `onError` rather than aborting the caller
+   * (create/send/destroy). `Promise.resolve().then(() => hook(change))` is
+   * deliberate — `Promise.resolve(hook(change))` would evaluate `hook(change)`
+   * eagerly and let a synchronous throw escape the catch.
+   *
+   * @param change The state change to pass to each hook.
+   * @param timeExecutionLabel Profiling label for the per-hook timing.
+   * @param onError Called with whatever a failing hook threw or rejected with.
+   */
+  public async runUpdateHooks(
+    change: XJogStateChange,
+    timeExecutionLabel: string,
+    onError: (err: unknown) => void,
+  ): Promise<void> {
+    for (const hook of this.updateHooks) {
+      await this.timeExecution(timeExecutionLabel, async () => {
+        await Promise.resolve()
+          .then(() => hook(change))
+          .catch(onError);
+      });
+    }
   }
 }

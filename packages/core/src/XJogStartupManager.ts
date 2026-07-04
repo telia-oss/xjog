@@ -37,8 +37,6 @@ export class XJogStartupManager {
     return this.isReady;
   }
 
-  // private readinessListeners = new Set<() => void>();
-
   /** @private Timer for startup grace period */
   private startupGracePeriodTimer: NodeJS.Timeout | null = null;
   /** @private Timer for adoption loop */
@@ -227,15 +225,31 @@ export class XJogStartupManager {
 
     this.startupGracePeriodTimer = null;
 
-    trace({ message: 'Adopting all charts, ready or not' });
-    const adoptedChartIdentifiers =
-      await this.xJog.persistence.forciblyAdoptCharts(this.xJog.id, cid);
+    try {
+      trace({ message: 'Adopting all charts, ready or not' });
+      const adoptedChartIdentifiers =
+        await this.xJog.persistence.forciblyAdoptCharts(this.xJog.id, cid);
 
-    trace({ message: 'Starting adopted charts' });
-    await this.startAdoptedCharts(adoptedChartIdentifiers);
+      trace({ message: 'Starting adopted charts' });
+      await this.startAdoptedCharts(adoptedChartIdentifiers);
 
-    trace({ message: 'Signal readiness' });
-    this.signalReadiness();
+      trace({ message: 'Signal readiness' });
+      this.signalReadiness();
+    } catch (error) {
+      // This runs as a detached timer callback, so a throw would surface as
+      // an unhandled rejection. Transient database errors must not kill the
+      // process; the adoption reconciler re-arms the grace period on its
+      // next pass while any charts remain paused.
+      this.xJog.error({
+        cid,
+        in: 'startupManager.forciblyOverThrowStubbornInstances',
+        message: 'Forced adoption failed',
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : error,
+      });
+    }
 
     trace({ message: 'Done' });
   }
@@ -295,29 +309,5 @@ export class XJogStartupManager {
 
     this.isReady = true;
     this.xJog.emit('ready');
-
-    // for (const readinessListener of this.readinessListeners) {
-    //   try {
-    //     readinessListener();
-    //     this.readinessListeners.delete(readinessListener);
-    //   } catch (error) {
-    //     this.xJog.trace({
-    //       in: 'startupManger.signalReadiness',
-    //       level: 'warning',
-    //       message: 'Failed to call a readiness listener',
-    //       error,
-    //     });
-    //   }
-    // }
   }
-
-  // public async waitUntilReady(): Promise<void> {
-  //   if (this.ready) {
-  //     return Promise.resolve();
-  //   }
-  //
-  //   return new Promise((resolve) => {
-  //     this.readinessListeners.add(resolve);
-  //   });
-  // }
 }

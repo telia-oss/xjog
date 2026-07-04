@@ -167,7 +167,7 @@ export abstract class JournalPersistenceAdapter extends AbstractPersistenceAdapt
       await this.emitJournalEntryNotification(id, ref);
     } catch (err) {
       error('Failed to record journal entries', { err });
-      throw error;
+      throw err;
     } finally {
       trace({ message: 'Done' });
     }

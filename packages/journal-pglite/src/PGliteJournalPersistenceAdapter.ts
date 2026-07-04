@@ -9,9 +9,10 @@ import {
   JournalPersistenceAdapter,
   type JournalQuery,
 } from '@telia-oss/xjog-journal-persistence';
-import type {
-  ChartReference,
-  XJogStateChangeAction,
+import {
+  type ChartReference,
+  createPositionalParameters,
+  type XJogStateChangeAction,
 } from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import type { EventObject, StateValue } from 'xstate';
@@ -185,7 +186,7 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     });
 
     await this.connection.query(
-      "SELECT pg_notify('new_journal_entry', $1:text)",
+      "SELECT pg_notify('new_journal_entry', $1::text)",
       [payload],
     );
   }
@@ -213,40 +214,25 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
   }
 
   /**
-   * Including the node-pg helper function
-   * https://github.com/brianc/node-postgres/blob/1b2bedc9c86b7378288e704252a8e4fafa27aa34/packages/pg/lib/utils.js#L175
+   * Builds a parameterized `JOIN (VALUES ...)` clause for matching an array
+   * of chart references, appending the values to `params`.
    */
-  private escapeLiteral(str: string): string {
-    let hasBackslash = false;
-    let escaped = "'";
-
-    if (str == null) {
-      return "''";
-    }
-
-    if (typeof str !== 'string') {
-      return "''";
-    }
-
-    for (let i = 0; i < str.length; i++) {
-      const c = str[i];
-      if (c === "'") {
-        escaped += c + c;
-      } else if (c === '\\') {
-        escaped += c + c;
-        hasBackslash = true;
-      } else {
-        escaped += c;
-      }
-    }
-
-    escaped += "'";
-
-    if (hasBackslash === true) {
-      escaped = ` E${escaped}`;
-    }
-
-    return escaped;
+  private static chartReferenceValuesJoin(
+    refs: ChartReference[],
+    params: unknown[],
+  ): string {
+    return (
+      'JOIN (VALUES ' +
+      refs
+        .map(({ machineId, chartId }) => {
+          params.push(machineId, chartId);
+          return `($${params.length - 1}, $${params.length})`;
+        })
+        .join(', ') +
+      ') ' +
+      '  AS "queryValues" ("queryMachineId", "queryChartId") ' +
+      'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" '
+    );
   }
 
   public async queryEntries(query: JournalQuery): Promise<JournalEntry[]> {
@@ -257,62 +243,62 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         return [];
       }
 
+      const params: unknown[] = [];
       result = await this.connection.query<PGliteJournalRow>(
         'SELECT ' +
           this.journalEntrySqlSelectFields +
           'FROM "journalEntries" ' +
-          'JOIN (VALUES ' +
-          query
-            .map(
-              ({ machineId, chartId }) =>
-                `(${this.escapeLiteral(machineId)}, ` +
-                `${this.escapeLiteral(chartId)})`,
-            )
-            .join(', ') +
-          ') ' +
-          '  AS "queryValues" ("queryMachineId", "queryChartId") ' +
-          'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" ',
+          PGliteJournalPersistenceAdapter.chartReferenceValuesJoin(
+            query,
+            params,
+          ),
+        params,
       );
     } else {
-      result = await this.connection.query<PGliteJournalRow>(
+      // PGlite takes positional parameters only, so placeholders are
+      // numbered in the order their conditions are appended
+      const { params, nextParam } = createPositionalParameters();
+
+      let sql =
         'SELECT ' +
-          this.journalEntrySqlSelectFields +
-          'FROM "journalEntries" ' +
-          'WHERE TRUE ' +
-          (query.ref !== undefined
-            ? '  AND "machineId" = $1 AND "chartId" = $2 '
-            : '') +
-          (query.afterId !== undefined ? '  AND "id" > $3::bigint ' : '') +
-          (query.afterAndIncludingId !== undefined
-            ? '  AND "id" >= $4::bigint '
-            : '') +
-          (query.beforeId !== undefined ? '  AND "id" < $5::bigint ' : '') +
-          (query.beforeAndIncludingId !== undefined
-            ? '  AND "id" <= $6::bigint '
-            : '') +
-          (query.updatedAfterAndIncluding !== undefined
-            ? '  AND "timestamp" >= to_timestamp($7::decimal / 1000) '
-            : '') +
-          (query.updatedBeforeAndIncluding !== undefined
-            ? '  AND "timestamp" <= to_timestamp($8::decimal / 1000) '
-            : '') +
-          'ORDER BY "id" ' +
-          (query.order ?? 'ASC') +
-          (query.offset !== undefined ? '  OFFSET $9 ' : '') +
-          (query.limit !== undefined ? '  LIMIT $10 ' : ''),
-        [
-          query.ref?.machineId, // $1
-          query.ref?.chartId, // $2
-          query.afterId, // $3
-          query.afterAndIncludingId, // $4
-          query.beforeId, // $5
-          query.beforeAndIncludingId, // $6
-          query.updatedAfterAndIncluding, // $7
-          query.updatedBeforeAndIncluding, // $8
-          query.offset, // $9
-          query.limit, // $10
-        ],
-      );
+        this.journalEntrySqlSelectFields +
+        'FROM "journalEntries" ' +
+        'WHERE TRUE ';
+
+      if (query.ref !== undefined) {
+        sql +=
+          `  AND "machineId" = ${nextParam(query.ref.machineId)} ` +
+          `AND "chartId" = ${nextParam(query.ref.chartId)} `;
+      }
+      if (query.afterId !== undefined) {
+        sql += `  AND "id" > ${nextParam(query.afterId)}::bigint `;
+      }
+      if (query.afterAndIncludingId !== undefined) {
+        sql += `  AND "id" >= ${nextParam(query.afterAndIncludingId)}::bigint `;
+      }
+      if (query.beforeId !== undefined) {
+        sql += `  AND "id" < ${nextParam(query.beforeId)}::bigint `;
+      }
+      if (query.beforeAndIncludingId !== undefined) {
+        sql += `  AND "id" <= ${nextParam(query.beforeAndIncludingId)}::bigint `;
+      }
+      if (query.updatedAfterAndIncluding !== undefined) {
+        sql += `  AND "timestamp" >= to_timestamp(${nextParam(query.updatedAfterAndIncluding)}::decimal / 1000) `;
+      }
+      if (query.updatedBeforeAndIncluding !== undefined) {
+        sql += `  AND "timestamp" <= to_timestamp(${nextParam(query.updatedBeforeAndIncluding)}::decimal / 1000) `;
+      }
+
+      sql += `ORDER BY "id" ${query.order ?? 'ASC'}`;
+
+      if (query.offset !== undefined) {
+        sql += `  OFFSET ${nextParam(query.offset)} `;
+      }
+      if (query.limit !== undefined) {
+        sql += `  LIMIT ${nextParam(query.limit)} `;
+      }
+
+      result = await this.connection.query<PGliteJournalRow>(sql, params);
     }
 
     return result.rows.map(PGliteJournalPersistenceAdapter.parseSqlJournalRow);
@@ -348,27 +334,35 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
       }
     };
 
-    // Received a notification of a new journal entry
+    // Received a notification of a new journal entry. Failures are logged
+    // rather than thrown: an exception here would surface as an unhandled
+    // rejection inside PGlite's notification dispatch.
     this.connection.listen(channel, async () => {
       this.queryEntries({
         afterId: journalEntryIdPointer,
         updatedAfterAndIncluding: startTime,
         order: 'DESC',
-      }).then((journalEntries: JournalEntry[]) => {
-        if (journalEntries.length) {
-          yieldJournalEntries(journalEntries);
-        }
-      });
+      })
+        .then((journalEntries: JournalEntry[]) => {
+          if (journalEntries.length) {
+            yieldJournalEntries(journalEntries);
+          }
+        })
+        .catch((err) =>
+          this.error('Failed to read new journal entries', { err }),
+        );
 
       this.queryFullStates({
         afterId: fullStateEntryIdPointer,
         updatedAfterAndIncluding: startTime,
         order: 'DESC',
-      }).then((fullStateEntries: FullStateEntry[]) => {
-        if (fullStateEntries.length) {
-          yieldFullStateEntries(fullStateEntries);
-        }
-      });
+      })
+        .then((fullStateEntries: FullStateEntry[]) => {
+          if (fullStateEntries.length) {
+            yieldFullStateEntries(fullStateEntries);
+          }
+        })
+        .catch((err) => this.error('Failed to read new full states', { err }));
     });
 
     return async () => {
@@ -412,79 +406,76 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         return [];
       }
 
+      const params: unknown[] = [];
       result = await this.connection.query<PGliteFullStateRow>(
         'SELECT ' +
           this.fullStateEntrySqlSelectFields +
           'FROM "fullJournalStates" ' +
-          'JOIN (VALUES ' +
-          query
-            .map(
-              ({ machineId, chartId }) =>
-                `(${this.escapeLiteral(machineId)}, ` +
-                `${this.escapeLiteral(chartId)})`,
-            )
-            .join(', ') +
-          ') ' +
-          '  AS "queryValues" ("queryMachineId", "queryChartId") ' +
-          'ON "machineId" = "queryMachineId" AND "chartId" = "queryChartId" ',
+          PGliteJournalPersistenceAdapter.chartReferenceValuesJoin(
+            query,
+            params,
+          ),
+        params,
       );
     } else {
-      result = await this.connection.query<PGliteFullStateRow>(
+      // PGlite takes positional parameters only, so placeholders are
+      // numbered in the order their conditions are appended
+      const { params, nextParam } = createPositionalParameters();
+
+      let sql =
         'SELECT ' +
-          this.fullStateEntrySqlSelectFields +
-          'FROM "fullJournalStates" ' +
-          'WHERE TRUE ' +
-          (query.ref !== undefined && query.machineId === undefined
-            ? '  AND "machineId" = $1 AND "chartId" = $2 '
-            : '') +
-          (query.parentRef !== undefined
-            ? '  AND "parentMachineId" = $3 AND "parentChartId" = $4 '
-            : '') +
-          // In case of both machineId and ref, ref takes precedence
-          (query.machineId !== undefined && query.ref === undefined
-            ? '  AND "machineId" = $5 '
-            : '') +
-          (query.afterId !== undefined ? '  AND "id" > $6::bigint ' : '') +
-          (query.afterAndIncludingId !== undefined
-            ? '  AND "id" >= $7::bigint '
-            : '') +
-          (query.beforeId !== undefined ? '  AND "id" < $8::bigint ' : '') +
-          (query.beforeAndIncludingId !== undefined
-            ? '  AND "id" <= $9::bigint '
-            : '') +
-          (query.createdAfterAndIncluding !== undefined
-            ? '  AND "created" >= to_timestamp($10::decimal / 1000) '
-            : '') +
-          (query.createdBeforeAndIncluding !== undefined
-            ? '  AND "created" <= to_timestamp($11::decimal / 1000) '
-            : '') +
-          (query.updatedAfterAndIncluding !== undefined
-            ? '  AND "timestamp" >= to_timestamp($12::decimal / 1000)  '
-            : '') +
-          (query.updatedBeforeAndIncluding !== undefined
-            ? '  AND "timestamp" <= to_timestamp($13::decimal / 1000) '
-            : '') +
-          'ORDER BY "id" ' +
-          (query.order ?? 'ASC') +
-          (query.offset !== undefined ? '  OFFSET $13 ' : '') +
-          (query.limit !== undefined ? '  LIMIT $14 ' : ''),
-        [
-          query.ref?.machineId ?? query.machineId, // $1
-          query.ref?.chartId, // $2
-          query.parentRef?.machineId, // $3
-          query.parentRef?.chartId, // $4
-          query.afterId, // $5
-          query.afterAndIncludingId, // $6
-          query.beforeId, // $7
-          query.beforeAndIncludingId, // $8
-          query.createdAfterAndIncluding, // $9
-          query.createdBeforeAndIncluding, // $10
-          query.updatedAfterAndIncluding, // $11
-          query.updatedBeforeAndIncluding, // $12
-          query.offset, // $13
-          query.limit, // $14
-        ],
-      );
+        this.fullStateEntrySqlSelectFields +
+        'FROM "fullJournalStates" ' +
+        'WHERE TRUE ';
+
+      // In case of both machineId and ref, ref takes precedence
+      if (query.ref !== undefined) {
+        sql +=
+          `  AND "machineId" = ${nextParam(query.ref.machineId)} ` +
+          `AND "chartId" = ${nextParam(query.ref.chartId)} `;
+      } else if (query.machineId !== undefined) {
+        sql += `  AND "machineId" = ${nextParam(query.machineId)} `;
+      }
+      if (query.parentRef !== undefined) {
+        sql +=
+          `  AND "parentMachineId" = ${nextParam(query.parentRef.machineId)} ` +
+          `AND "parentChartId" = ${nextParam(query.parentRef.chartId)} `;
+      }
+      if (query.afterId !== undefined) {
+        sql += `  AND "id" > ${nextParam(query.afterId)}::bigint `;
+      }
+      if (query.afterAndIncludingId !== undefined) {
+        sql += `  AND "id" >= ${nextParam(query.afterAndIncludingId)}::bigint `;
+      }
+      if (query.beforeId !== undefined) {
+        sql += `  AND "id" < ${nextParam(query.beforeId)}::bigint `;
+      }
+      if (query.beforeAndIncludingId !== undefined) {
+        sql += `  AND "id" <= ${nextParam(query.beforeAndIncludingId)}::bigint `;
+      }
+      if (query.createdAfterAndIncluding !== undefined) {
+        sql += `  AND "created" >= to_timestamp(${nextParam(query.createdAfterAndIncluding)}::decimal / 1000) `;
+      }
+      if (query.createdBeforeAndIncluding !== undefined) {
+        sql += `  AND "created" <= to_timestamp(${nextParam(query.createdBeforeAndIncluding)}::decimal / 1000) `;
+      }
+      if (query.updatedAfterAndIncluding !== undefined) {
+        sql += `  AND "timestamp" >= to_timestamp(${nextParam(query.updatedAfterAndIncluding)}::decimal / 1000) `;
+      }
+      if (query.updatedBeforeAndIncluding !== undefined) {
+        sql += `  AND "timestamp" <= to_timestamp(${nextParam(query.updatedBeforeAndIncluding)}::decimal / 1000) `;
+      }
+
+      sql += `ORDER BY "id" ${query.order ?? 'ASC'}`;
+
+      if (query.offset !== undefined) {
+        sql += `  OFFSET ${nextParam(query.offset)} `;
+      }
+      if (query.limit !== undefined) {
+        sql += `  LIMIT ${nextParam(query.limit)} `;
+      }
+
+      result = await this.connection.query<PGliteFullStateRow>(sql, params);
     }
 
     return result.rows.map(
@@ -525,35 +516,11 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
     return Number(result.rows[0].time);
   }
 
-  public async record(
-    ownerId: string,
-    ref: ChartReference,
-    parentRef: ChartReference | null,
-    event: EventObject | null,
-    oldState: StateValue | null,
-    oldContext: any | null,
-    newState: StateValue | null,
-    newContext: unknown | null,
-    actions: XJogStateChangeAction[],
-    cid?: string,
-  ): Promise<void> {
-    // TODO: Figure out what data to pass in here
-    const now = Date.now();
-    const entry = await this.updateFullState({
-      id: 1,
-      created: now,
-      timestamp: now,
-      ownerId,
-      ref,
-      parentRef,
-      event,
-      state: newState,
-      context: newContext,
-      actions,
-    });
-  }
-
   static parseSqlJournalRow(row: PGliteJournalRow): JournalEntry {
+    // bytea columns arrive as Uint8Array; String() would render them as
+    // comma-joined byte values, so they must be decoded as UTF-8 text
+    const decoder = new TextDecoder();
+
     return {
       id: Number(row.id),
       timestamp: Number(row.timestamp),
@@ -563,14 +530,14 @@ export class PGliteJournalPersistenceAdapter extends JournalPersistenceAdapter {
         chartId: row.chartId,
       },
 
-      event: JSON.parse(String(row.event)),
+      event: row.event ? JSON.parse(decoder.decode(row.event)) : null,
 
-      state: row.state ? JSON.parse(String(row.state)) : null,
-      context: row.context ? JSON.parse(String(row.context)) : null,
+      state: row.state ? JSON.parse(decoder.decode(row.state)) : null,
+      context: row.context ? JSON.parse(decoder.decode(row.context)) : null,
 
-      stateDelta: JSON.parse(String(row.stateDelta)),
-      contextDelta: JSON.parse(String(row.contextDelta)),
-      actions: row.actions ? JSON.parse(String(row.actions)) : null,
+      stateDelta: JSON.parse(decoder.decode(row.stateDelta)),
+      contextDelta: JSON.parse(decoder.decode(row.contextDelta)),
+      actions: row.actions ? JSON.parse(decoder.decode(row.actions)) : null,
     };
   }
 

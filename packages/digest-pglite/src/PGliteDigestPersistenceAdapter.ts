@@ -8,7 +8,10 @@ import {
   type DigestQuery,
   type Expression,
 } from '@telia-oss/xjog-digest-persistence';
-import type { ChartReference } from '@telia-oss/xjog-util';
+import {
+  type ChartReference,
+  createPositionalParameters,
+} from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 
 import type { PGliteDigestRow } from './PGliteDigestRow';
@@ -154,7 +157,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     const digestEntries: DigestEntries = {};
 
     for (const row of result.rows) {
-      digestEntries[row.machineId] =
+      digestEntries[row.key] =
         PGliteDigestPersistenceAdapter.parseSqlDigestRow(row);
     }
 
@@ -167,29 +170,50 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     const [filterQuery, filterBindings] =
       PGliteDigestPersistenceAdapter.filterQuery(digestQuery?.query);
 
-    const result = await this.pool.query<ChartReferenceWithTimestamp>(
+    // PGlite takes positional parameters only, so placeholders are numbered
+    // in the order their conditions are appended, and the named `:binding`
+    // tokens produced by `filterQuery` are substituted the same way.
+    const { params, nextParam } = createPositionalParameters();
+
+    let sql =
       'SELECT DISTINCT "machineId", "chartId", ' +
-        '  MAX(extract(epoch from "timestamp") * 1000) as "timestamp" ' +
-        'FROM "digests" WHERE TRUE ' +
-        (digestQuery?.machineId !== undefined
-          ? '  AND "machineId" = $1 '
-          : '') +
-        (digestQuery?.chartId !== undefined ? '  AND "chartId" = $2 ' : '') +
-        (filterQuery ? `AND (${filterQuery}) ` : '') +
-        'GROUP BY "machineId", "chartId" ' +
-        'ORDER BY "timestamp" ' +
-        (digestQuery?.order ?? 'ASC') +
-        (digestQuery?.offset !== undefined ? '  OFFSET $3 ' : '') +
-        (digestQuery?.limit !== undefined ? '  LIMIT $4 ' : ''),
-      [
-        // Only add bindings if they are defined, PGlite does not allow non-used bindings
-        ...(digestQuery?.machineId ? [digestQuery.machineId] : []),
-        ...(digestQuery?.chartId ? [digestQuery.chartId] : []),
-        ...(digestQuery?.offset ? [digestQuery.offset] : []),
-        ...(digestQuery?.limit ? [digestQuery.limit] : []),
-        // ...filterBindings,
-        // TODO: Implement filterBindings
-      ],
+      '  MAX(extract(epoch from "timestamp") * 1000) as "timestamp" ' +
+      'FROM "digests" WHERE TRUE ';
+
+    if (digestQuery?.machineId !== undefined) {
+      sql += `  AND "machineId" = ${nextParam(digestQuery.machineId)} `;
+    }
+
+    if (digestQuery?.chartId !== undefined) {
+      sql += `  AND "chartId" = ${nextParam(digestQuery.chartId)} `;
+    }
+
+    if (filterQuery) {
+      // Match `:name` but not the `::type` casts also present in the SQL
+      const positionalFilterQuery = filterQuery.replace(
+        /(^|[^:]):([A-Za-z0-9_]+)/g,
+        (_match, precedingChar, bindingName) =>
+          `${precedingChar}${nextParam(filterBindings[bindingName])}`,
+      );
+      sql += `AND (${positionalFilterQuery}) `;
+    }
+
+    sql +=
+      'GROUP BY "machineId", "chartId" ' +
+      'ORDER BY "timestamp" ' +
+      (digestQuery?.order ?? 'ASC');
+
+    if (digestQuery?.offset !== undefined) {
+      sql += `  OFFSET ${nextParam(digestQuery.offset)} `;
+    }
+
+    if (digestQuery?.limit !== undefined) {
+      sql += `  LIMIT ${nextParam(digestQuery.limit)} `;
+    }
+
+    const result = await this.pool.query<ChartReferenceWithTimestamp>(
+      sql,
+      params,
     );
 
     return result.rows;
@@ -206,10 +230,13 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
     let queryString = '';
     const bindings: Record<string, string | number> = {};
 
-    const createBindingKey = (
-      op: 'eq' | 're' | 'lt' | 'lte' | 'gt' | 'gte',
-      key: string,
-    ) => `${prefix}_${op}_${key}`;
+    // The recursion `prefix` already uniquely identifies this node, so the
+    // binding name needs only the operator to stay unique. The digest key is
+    // carried as a bound *value* (see addBindings), never interpolated into the
+    // name — embedding it here produced names with hyphens/dots/digits that the
+    // `:name` -> `$n` substitution truncates, mis-binding the query.
+    const createBindingKey = (op: 'eq' | 're' | 'lt' | 'lte' | 'gt' | 'gte') =>
+      `${prefix}_${op}`;
 
     const keyMatchSql = (key: string, bindingKey: string): string =>
       key ? `AND "candidate"."key" = :key_${bindingKey} ` : '';
@@ -233,7 +260,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
 
     switch (expression.op) {
       case 'eq': {
-        const bindingKey = createBindingKey('eq', expression.left);
+        const bindingKey = createBindingKey('eq');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -243,7 +270,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case 'matches': {
-        const bindingKey = createBindingKey('re', expression.left);
+        const bindingKey = createBindingKey('re');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -255,7 +282,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       // Numeric inequality
 
       case '<': {
-        const bindingKey = createBindingKey('lt', expression.left);
+        const bindingKey = createBindingKey('lt');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -265,7 +292,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case '>': {
-        const bindingKey = createBindingKey('gt', expression.left);
+        const bindingKey = createBindingKey('gt');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -275,7 +302,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case '<=': {
-        const bindingKey = createBindingKey('lte', expression.left);
+        const bindingKey = createBindingKey('lte');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -285,7 +312,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case '>=': {
-        const bindingKey = createBindingKey('gte', expression.left);
+        const bindingKey = createBindingKey('gte');
         addBindings(bindingKey, expression.left, expression.right);
         queryString += matchingSql(
           keyMatchSql(expression.left, bindingKey) +
@@ -330,7 +357,7 @@ export class PGliteDigestPersistenceAdapter extends DigestPersistenceAdapter {
       }
 
       case 'updated after': {
-        const bindingKey = `${prefix}_crbef`;
+        const bindingKey = `${prefix}_udaft`;
         bindings[`value_${bindingKey}`] = expression.dateTime.valueOf();
         queryString +=
           'NOT ' +

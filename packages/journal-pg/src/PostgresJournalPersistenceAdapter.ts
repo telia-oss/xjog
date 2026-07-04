@@ -364,25 +364,35 @@ export class PostgresJournalPersistenceAdapter extends JournalPersistenceAdapter
       }
     };
 
-    // Received a notification of a new journal entry
+    // Received a notification of a new journal entry. Failures are logged
+    // rather than thrown: an exception here would surface as an unhandled
+    // rejection inside the notification dispatch and crash the process.
     journalSubscriber.notifications.on(channel, async () => {
-      const journalEntries = await this.queryEntries({
+      this.queryEntries({
         afterId: journalEntryIdPointer,
         updatedAfterAndIncluding: startTime,
         order: 'DESC',
-      });
-      if (journalEntries.length) {
-        yieldJournalEntries(journalEntries);
-      }
+      })
+        .then((journalEntries) => {
+          if (journalEntries.length) {
+            yieldJournalEntries(journalEntries);
+          }
+        })
+        .catch((err) =>
+          this.error('Failed to read new journal entries', { err }),
+        );
 
-      const fullStateEntries = await this.queryFullStates({
+      this.queryFullStates({
         afterId: fullStateEntryIdPointer,
         updatedAfterAndIncluding: startTime,
         order: 'DESC',
-      });
-      if (fullStateEntries.length) {
-        yieldFullStateEntries(fullStateEntries);
-      }
+      })
+        .then((fullStateEntries) => {
+          if (fullStateEntries.length) {
+            yieldFullStateEntries(fullStateEntries);
+          }
+        })
+        .catch((err) => this.error('Failed to read new full states', { err }));
     });
 
     journalSubscriber.events.on('error', (error) => {
