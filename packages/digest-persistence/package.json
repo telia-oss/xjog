@@ -27,7 +27,8 @@
     "clean": "rm -rf node_modules lib",
     "lint": "pnpm exec biome ci .",
     "lint:fix": "pnpm exec biome check --write .",
-    "format": "pnpm exec biome format --write ."
+    "format": "pnpm exec biome format --write .",
+    "test": "pnpm exec jest --passWithNoTests"
   },
   "dependencies": {
     "@telia-oss/xjog-util": "workspace:^"
