@@ -1,4 +1,4 @@
-import type { FullStateEntry } from '@samihult/xjog-journal-persistence';
+import type { FullStateEntry } from '@telia-oss/xjog-journal-persistence';
 import type { Operation } from 'rfc6902';
 import type { StateValue } from 'xstate';
 

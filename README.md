@@ -48,12 +48,12 @@ On roadmap:
 ## Usage
 
 ```shell script
-pnpm add xstate@4 @samihult/xjog @samihult/xjog-core-pglite
+pnpm add xstate@4 @telia-oss/xjog @telia-oss/xjog-core-pglite
 ```
 
 ```typescript
-import { XJog } from '@samihult/xjog';
-import { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { XJog } from '@telia-oss/xjog';
+import { PGlitePersistenceAdapter } from '@telia-oss/xjog-core-pglite';
 import { createMachine } from 'xstate';
 
 // Configure a regular xState chart

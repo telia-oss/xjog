@@ -1,5 +1,5 @@
-import { ChartOwnershipLostError } from '@samihult/xjog-core-persistence';
-import type { PGlitePersistenceAdapter } from '@samihult/xjog-core-pglite';
+import { ChartOwnershipLostError } from '@telia-oss/xjog-core-persistence';
+import type { PGlitePersistenceAdapter } from '@telia-oss/xjog-core-pglite';
 import { Subject } from 'rxjs';
 import { createMachine, interpret, State } from 'xstate';
 import { connectTestPersistence } from './pglite.testutil';

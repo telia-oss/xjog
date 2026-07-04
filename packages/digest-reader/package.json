@@ -1,5 +1,5 @@
 {
-  "name": "@samihult/xjog-digest-reader",
+  "name": "@telia-oss/xjog-digest-reader",
   "version": "0.1.0",
   "description": "XJog chart digest reader",
   "engines": {
@@ -32,8 +32,8 @@
     "format": "pnpm exec biome format --write ."
   },
   "dependencies": {
-    "@samihult/xjog-digest-persistence": "workspace:^",
-    "@samihult/xjog-util": "workspace:^"
+    "@telia-oss/xjog-digest-persistence": "workspace:^",
+    "@telia-oss/xjog-util": "workspace:^"
   },
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
   "peerDependencies": {

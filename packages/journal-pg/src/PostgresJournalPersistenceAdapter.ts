@@ -7,8 +7,8 @@ import {
   type JournalEntryInsertFields,
   JournalPersistenceAdapter,
   type JournalQuery,
-} from '@samihult/xjog-journal-persistence';
-import type { ChartReference } from '@samihult/xjog-util';
+} from '@telia-oss/xjog-journal-persistence';
+import type { ChartReference } from '@telia-oss/xjog-util';
 import migrationRunner from 'node-pg-migrate';
 import { Client, type PoolConfig } from 'pg';
 import bind from 'pg-bind';

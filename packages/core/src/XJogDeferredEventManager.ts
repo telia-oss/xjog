@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto';
 import {
   ChartOwnershipLostError,
   type PersistedDeferredEvent,
-} from '@samihult/xjog-core-persistence';
+} from '@telia-oss/xjog-core-persistence';
 
 import {
   type ActivityRef,
   ChartIdentifier,
   type ChartReference,
   getCorrelationIdentifier,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import type { XJog } from './XJog';
 import type { ResolvedXJogOptions } from './XJogOptions';
 

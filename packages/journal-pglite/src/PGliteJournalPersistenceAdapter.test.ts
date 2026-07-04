@@ -1,4 +1,4 @@
-import type { XJogStateChangeAction } from '@samihult/xjog-util';
+import type { XJogStateChangeAction } from '@telia-oss/xjog-util';
 import { PGliteJournalPersistenceAdapter } from './PGliteJournalPersistenceAdapter';
 
 describe('PGliteJournalPersistenceAdapter', () => {

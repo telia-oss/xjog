@@ -1,5 +1,5 @@
 {
-  "name": "@samihult/xjog-journal-writer",
+  "name": "@telia-oss/xjog-journal-writer",
   "version": "0.1.0",
   "description": "XJog chart journal writer",
   "engines": {
@@ -30,9 +30,9 @@
     "format": "pnpm exec biome format --write ."
   },
   "dependencies": {
-    "@samihult/xjog": "workspace:^",
-    "@samihult/xjog-journal-persistence": "workspace:^",
-    "@samihult/xjog-util": "workspace:^"
+    "@telia-oss/xjog": "workspace:^",
+    "@telia-oss/xjog-journal-persistence": "workspace:^",
+    "@telia-oss/xjog-util": "workspace:^"
   },
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
   "publishConfig": {

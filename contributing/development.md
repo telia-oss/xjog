@@ -14,7 +14,7 @@ Prerequisites:
 Prepare the repository.
 
 ```bash
-git clone git@github.com:samihult/xjog.git
+git clone git@github.com:telia-oss/xjog.git
 cd xjog
 pnpm install
 ```
@@ -24,8 +24,8 @@ After this you can run commands like this from the root directory:
 ```bash
 pnpm -r run clean
 pnpm run build                                  # turbo run build (cached, graph-ordered)
-pnpm exec turbo run build --filter @samihult/xjog
-pnpm --filter @samihult/xjog run lint
+pnpm exec turbo run build --filter @telia-oss/xjog
+pnpm --filter @telia-oss/xjog run lint
 ```
 
 To get started with development, build and watch from the root level.
@@ -61,7 +61,7 @@ the generated file in `.changeset/` alongside your code. While in alpha, keep bu
 To cut a release, maintainers run `pnpm version-packages` (consume changesets +
 bump) and then `pnpm release` (build + publish) from `main`. Packages publish to
 Telia's JFrog Artifactory, pinned via each package's `publishConfig.registry` and
-the `@samihult:registry` entry in `.npmrc`. The full runbook — auth and
+the `@telia-oss:registry` entry in `.npmrc`. The full runbook — auth and
 troubleshooting the "already published / nothing to publish" case — is in
 [releasing.md](./releasing.md).
 
@@ -119,6 +119,6 @@ their benefits at the early stages of development, but should be converted to E2
 
 Testing should be activated. See the following issues:
 
-- [#9 Bring back unit tests](https://github.com/samihult/xjog/issues/9)
-- [#10 Re-establish E2E tests](https://github.com/samihult/xjog/issues/10)
+- [#9 Bring back unit tests](https://github.com/telia-oss/xjog/issues/9)
+- [#10 Re-establish E2E tests](https://github.com/telia-oss/xjog/issues/10)
 

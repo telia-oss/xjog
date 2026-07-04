@@ -25,4 +25,4 @@ pnpm release            # builds all packages, then publishes changed ones + git
 
 `updateInternalDependencies` is set to `patch`, so a bump to one package also nudges
 the `workspace:^` dependents. `access` is `restricted` because alpha packages are
-published to the private GitHub Packages registry under `@samihult`.
+published to Telia's private JFrog Artifactory registry under `@telia-oss`.

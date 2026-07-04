@@ -1,4 +1,4 @@
-import { pickIntegerOption } from '@samihult/xjog-util';
+import { pickIntegerOption } from '@telia-oss/xjog-util';
 
 import type { ResolvedXJogOptions } from './XJogOptions';
 

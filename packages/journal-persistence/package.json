@@ -1,5 +1,5 @@
 {
-  "name": "@samihult/xjog-journal-persistence",
+  "name": "@telia-oss/xjog-journal-persistence",
   "version": "0.1.0",
   "description": "XJog chart abstract journal persistence adapter",
   "engines": {
@@ -32,7 +32,7 @@
     "format": "pnpm exec biome format --write ."
   },
   "dependencies": {
-    "@samihult/xjog-util": "workspace:^",
+    "@telia-oss/xjog-util": "workspace:^",
     "rfc6902": "^5.0.1",
     "xstate": "4.38.3"
   },

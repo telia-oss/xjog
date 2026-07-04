@@ -1,6 +1,6 @@
-import type { XJog } from '@samihult/xjog';
-import type { DigestPersistenceAdapter } from '@samihult/xjog-digest-persistence';
-import { XJogLogEmitter, type XJogStateChange } from '@samihult/xjog-util';
+import type { XJog } from '@telia-oss/xjog';
+import type { DigestPersistenceAdapter } from '@telia-oss/xjog-digest-persistence';
+import { XJogLogEmitter, type XJogStateChange } from '@telia-oss/xjog-util';
 import type { DigestOperations } from './Digests';
 import type { XJogDigestWriterOptions } from './XJogDigestWriterOptions';
 import type { XJogDigestWriterResolvedOptions } from './XJogDigestWriterResolvedOptions';

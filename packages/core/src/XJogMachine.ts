@@ -1,10 +1,10 @@
-import type { PersistenceAdapter } from '@samihult/xjog-core-persistence';
+import type { PersistenceAdapter } from '@telia-oss/xjog-core-persistence';
 import {
   getCorrelationIdentifier,
   type LogFields,
   XJogLogEmitter,
   type XJogStateChange,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
 import { filter, type Observable } from 'rxjs';
 import type {

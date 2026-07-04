@@ -2,8 +2,8 @@ import type {
   ChartReferenceWithTimestamp,
   DigestPersistenceAdapter,
   DigestQuery,
-} from '@samihult/xjog-digest-persistence';
-import { type ChartReference, XJogLogEmitter } from '@samihult/xjog-util';
+} from '@telia-oss/xjog-digest-persistence';
+import { type ChartReference, XJogLogEmitter } from '@telia-oss/xjog-util';
 import { concat, concatMap, from, type Observable } from 'rxjs';
 
 export class XJogDigestReader extends XJogLogEmitter {

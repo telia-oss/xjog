@@ -62,10 +62,10 @@ importers:
 
   packages/core:
     dependencies:
-      '@samihult/xjog-core-persistence':
+      '@telia-oss/xjog-core-persistence':
         specifier: workspace:^
         version: link:../core-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       async-mutex:
@@ -78,7 +78,7 @@ importers:
         specifier: 4.38.3
         version: 4.38.3
     devDependencies:
-      '@samihult/xjog-core-pglite':
+      '@telia-oss/xjog-core-pglite':
         specifier: workspace:^
         version: link:../core-pglite
       '@types/express':
@@ -93,7 +93,7 @@ importers:
 
   packages/core-persistence:
     dependencies:
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       xstate:
@@ -102,10 +102,10 @@ importers:
 
   packages/core-pg:
     dependencies:
-      '@samihult/xjog-core-persistence':
+      '@telia-oss/xjog-core-persistence':
         specifier: workspace:^
         version: link:../core-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       node-pg-migrate:
@@ -136,10 +136,10 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.3.5
         version: 0.3.16
-      '@samihult/xjog-core-persistence':
+      '@telia-oss/xjog-core-persistence':
         specifier: workspace:^
         version: link:../core-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       node-pg-migrate:
@@ -151,7 +151,7 @@ importers:
 
   packages/digest-persistence:
     dependencies:
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       rxjs:
@@ -160,10 +160,10 @@ importers:
 
   packages/digest-pg:
     dependencies:
-      '@samihult/xjog-digest-persistence':
+      '@telia-oss/xjog-digest-persistence':
         specifier: workspace:^
         version: link:../digest-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       node-pg-migrate:
@@ -191,10 +191,10 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.3.5
         version: 0.3.16
-      '@samihult/xjog-digest-persistence':
+      '@telia-oss/xjog-digest-persistence':
         specifier: workspace:^
         version: link:../digest-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       node-pg-migrate:
@@ -203,10 +203,10 @@ importers:
 
   packages/digest-reader:
     dependencies:
-      '@samihult/xjog-digest-persistence':
+      '@telia-oss/xjog-digest-persistence':
         specifier: workspace:^
         version: link:../digest-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       rxjs:
@@ -215,13 +215,13 @@ importers:
 
   packages/digest-writer:
     dependencies:
-      '@samihult/xjog':
+      '@telia-oss/xjog':
         specifier: workspace:^
         version: link:../core
-      '@samihult/xjog-digest-persistence':
+      '@telia-oss/xjog-digest-persistence':
         specifier: workspace:^
         version: link:../digest-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       pg:
@@ -240,7 +240,7 @@ importers:
 
   packages/journal-persistence:
     dependencies:
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       rfc6902:
@@ -255,13 +255,13 @@ importers:
 
   packages/journal-pg:
     dependencies:
-      '@samihult/xjog-core-persistence':
+      '@telia-oss/xjog-core-persistence':
         specifier: workspace:^
         version: link:../core-persistence
-      '@samihult/xjog-journal-persistence':
+      '@telia-oss/xjog-journal-persistence':
         specifier: workspace:^
         version: link:../journal-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       node-pg-migrate:
@@ -289,10 +289,10 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.3.5
         version: 0.3.16
-      '@samihult/xjog-journal-persistence':
+      '@telia-oss/xjog-journal-persistence':
         specifier: workspace:^
         version: link:../journal-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       node-pg-migrate:
@@ -304,13 +304,13 @@ importers:
 
   packages/journal-reader:
     dependencies:
-      '@samihult/xjog':
+      '@telia-oss/xjog':
         specifier: workspace:^
         version: link:../core
-      '@samihult/xjog-journal-persistence':
+      '@telia-oss/xjog-journal-persistence':
         specifier: workspace:^
         version: link:../journal-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
       pg:
@@ -338,13 +338,13 @@ importers:
 
   packages/journal-writer:
     dependencies:
-      '@samihult/xjog':
+      '@telia-oss/xjog':
         specifier: workspace:^
         version: link:../core
-      '@samihult/xjog-journal-persistence':
+      '@telia-oss/xjog-journal-persistence':
         specifier: workspace:^
         version: link:../journal-persistence
-      '@samihult/xjog-util':
+      '@telia-oss/xjog-util':
         specifier: workspace:^
         version: link:../util
 

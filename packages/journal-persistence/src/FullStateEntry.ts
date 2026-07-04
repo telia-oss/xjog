@@ -1,7 +1,7 @@
 import type {
   ChartReference,
   XJogStateChangeAction,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import type { EventObject, StateValue } from 'xstate';
 
 export type FullStateEntry = {

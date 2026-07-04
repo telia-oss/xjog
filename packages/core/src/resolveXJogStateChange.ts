@@ -4,7 +4,7 @@ import {
   type XJogStateChange,
   type XJogStateChangeAction,
   type XJogStateChangeState,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import type {
   BaseActionObject,
   EventObject,

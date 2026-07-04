@@ -3,7 +3,7 @@ import {
   ChartOwnershipLostError,
   type PersistedDeferredEvent,
   type PersistenceAdapter,
-} from '@samihult/xjog-core-persistence';
+} from '@telia-oss/xjog-core-persistence';
 import {
   type ActivityRef,
   ChartIdentifier,
@@ -12,7 +12,7 @@ import {
   type LogFields,
   XJogLogEmitter,
   type XJogStateChange,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import { Mutex, type MutexInterface, withTimeout } from 'async-mutex';
 import { concat, filter, from, map, type Observable, of } from 'rxjs';
 import {

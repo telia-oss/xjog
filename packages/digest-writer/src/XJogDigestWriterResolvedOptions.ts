@@ -1,4 +1,4 @@
-import type { XJogStateChange } from '@samihult/xjog-util';
+import type { XJogStateChange } from '@telia-oss/xjog-util';
 
 import type { DigestOperations } from './Digests';
 

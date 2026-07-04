@@ -3,7 +3,7 @@ import {
   type ChartReference,
   getCorrelationIdentifier,
   type XJogStateChangeAction,
-} from '@samihult/xjog-util';
+} from '@telia-oss/xjog-util';
 import { createPatch } from 'rfc6902';
 import { filter, from, type Observable, Subject } from 'rxjs';
 import type { StateValue } from 'xstate';
