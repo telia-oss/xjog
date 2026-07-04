@@ -7,7 +7,12 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["packages/**/src/**/*.ts", "!**/lib", "!**/node_modules"]
+    "includes": [
+      "packages/**/src/**/*.ts",
+      "!**/lib",
+      "!**/node_modules",
+      "!.*"
+    ]
   },
   "formatter": {
     "enabled": true,
