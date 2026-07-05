@@ -39,7 +39,12 @@ export class PostgresDigestPersistenceAdapter extends AbstractPostgresDigestPers
     poolConfiguration: PoolConfig,
   ): Promise<PostgresDigestPersistenceAdapter> {
     const pool = new Pool(poolConfiguration);
-    await pool.connect();
+    // Verify the pool can actually establish a connection before returning,
+    // but release it immediately: an unreleased client here permanently
+    // occupies a pool slot and causes pool.end() (called from disconnect())
+    // to hang forever, since the pool waits for every checked-out client to
+    // be released before it can close.
+    (await pool.connect()).release();
 
     const adapter = new PostgresDigestPersistenceAdapter(
       poolConfiguration,
