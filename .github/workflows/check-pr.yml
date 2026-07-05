@@ -66,3 +66,66 @@ jobs:
         # runner starves them into 5s test timeouts. One package at a time keeps
         # each suite fast. Local dev keeps full turbo concurrency.
         run: pnpm exec turbo run test --concurrency=1
+
+  pg-smoke:
+    name: Postgres driver smoke tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PG_TEST_URL: postgres://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        # Version comes from the packageManager field in package.json.
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Run build
+        # Needed so lib/migrations/*.sql exist for the -pg adapters' connect().
+        run: pnpm exec turbo run build
+
+      - name: Run Postgres driver smoke tests
+        # Only the three -pg suites; everything else is covered by `check`.
+        # Serialized so the three suites don't create/drop databases on the
+        # same Postgres server concurrently.
+        run: |
+          pnpm exec turbo run test \
+            --filter=./packages/core-pg \
+            --filter=./packages/journal-pg \
+            --filter=./packages/digest-pg \
+            --concurrency=1
