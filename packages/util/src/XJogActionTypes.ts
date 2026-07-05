@@ -1,3 +1,3 @@
-export declare enum XJogActionTypes {
+export enum XJogActionTypes {
   Unknown = 'xjog.unknown',
 }

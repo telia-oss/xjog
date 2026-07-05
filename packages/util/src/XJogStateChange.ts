@@ -10,15 +10,9 @@ export type XJogStateChangeSendAction = {
   to: string;
 };
 
-export type XJogStateChangeRaiseAction = {
-  type: ActionTypes.Raise;
-  // TODO ?
-};
-
 export type XJogStateChangeCancelAction = {
   type: ActionTypes.Cancel;
   sendId: string | number;
-  // TODO ?
 };
 
 export type XJogStateChangeStartAction = {
@@ -33,76 +27,33 @@ export type XJogStateChangeStopAction = {
   activityType: string;
 };
 
-export type XJogStateChangeAssignAction = {
-  type: ActionTypes.Assign;
-  // TODO ?
+/**
+ * Built-in xstate action types that XJog records by type only. Their resolved
+ * action objects either carry no payload worth journaling or carry values
+ * (assignment/expression functions) that cannot be serialized.
+ */
+export type XJogStateChangePlainActionType =
+  | ActionTypes.Raise
+  | ActionTypes.Assign
+  | ActionTypes.After
+  | ActionTypes.DoneState
+  | ActionTypes.DoneInvoke
+  | ActionTypes.Log
+  | ActionTypes.Init
+  | ActionTypes.Invoke
+  | ActionTypes.ErrorExecution
+  | ActionTypes.ErrorCommunication
+  | ActionTypes.ErrorPlatform
+  | ActionTypes.ErrorCustom
+  | ActionTypes.Update
+  | ActionTypes.Pure
+  | ActionTypes.Choose;
+
+export type XJogStateChangePlainAction = {
+  type: XJogStateChangePlainActionType;
 };
 
-export type XJogStateChangeAfterAction = {
-  type: ActionTypes.After;
-  // TODO ?
-};
-
-export type XJogStateChangeDoneStateAction = {
-  type: ActionTypes.DoneState;
-  // TODO ?
-};
-
-export type XJogStateChangeDoneInvokeAction = {
-  type: ActionTypes.DoneInvoke;
-  // TODO ?
-};
-
-export type XJogStateChangeLogAction = {
-  type: ActionTypes.Log;
-  // TODO ?
-};
-
-export type XJogStateChangeInitAction = {
-  type: ActionTypes.Init;
-  // TODO ?
-};
-
-export type XJogStateChangeInvokeAction = {
-  type: ActionTypes.Invoke;
-  // TODO ?
-};
-
-export type XJogStateChangeErrorExecutionAction = {
-  type: ActionTypes.ErrorExecution;
-  // TODO ?
-};
-
-export type XJogStateChangeErrorCommunicationAction = {
-  type: ActionTypes.ErrorCommunication;
-  // TODO ?
-};
-
-export type XJogStateChangeErrorPlatformAction = {
-  type: ActionTypes.ErrorPlatform;
-  // TODO ?
-};
-
-export type XJogStateChangeErrorCustomAction = {
-  type: ActionTypes.ErrorCustom;
-  // TODO ?
-};
-
-export type XJogStateChangeUpdateAction = {
-  type: ActionTypes.Update;
-  // TODO ?
-};
-
-export type XJogStateChangePureAction = {
-  type: ActionTypes.Pure;
-  // TODO ?
-};
-
-export type XJogStateChangeChooseAction = {
-  type: ActionTypes.Choose;
-  // TODO ?
-};
-
+/** Any action type XJog does not recognize, e.g. user-defined actions. */
 export type XJogStateChangeUnknownAction = {
   type: XJogActionTypes.Unknown;
   actionType: string;
@@ -110,24 +61,10 @@ export type XJogStateChangeUnknownAction = {
 
 export type XJogStateChangeAction =
   | XJogStateChangeSendAction
-  | XJogStateChangeRaiseAction
   | XJogStateChangeCancelAction
   | XJogStateChangeStartAction
   | XJogStateChangeStopAction
-  | XJogStateChangeAssignAction
-  | XJogStateChangeAfterAction
-  | XJogStateChangeDoneStateAction
-  | XJogStateChangeDoneInvokeAction
-  | XJogStateChangeLogAction
-  | XJogStateChangeInitAction
-  | XJogStateChangeInvokeAction
-  | XJogStateChangeErrorExecutionAction
-  | XJogStateChangeErrorCommunicationAction
-  | XJogStateChangeErrorPlatformAction
-  | XJogStateChangeErrorCustomAction
-  | XJogStateChangeUpdateAction
-  | XJogStateChangePureAction
-  | XJogStateChangeChooseAction
+  | XJogStateChangePlainAction
   | XJogStateChangeUnknownAction;
 
 export type XJogStateChangeState = {

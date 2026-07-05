@@ -3,6 +3,7 @@ import {
   XJogActionTypes,
   type XJogStateChange,
   type XJogStateChangeAction,
+  type XJogStateChangePlainAction,
   type XJogStateChangeState,
 } from '@telia-oss/xjog-util';
 import type {
@@ -134,8 +135,7 @@ export function resolveXJogDeleteStateChange<
 export function mapActions(
   actions: BaseActionObject[],
 ): XJogStateChangeAction[] {
-  // @ts-expect-error
-  return actions.map((action) => {
+  return actions.map((action): XJogStateChangeAction => {
     switch (action.type) {
       case ActionTypes.Send:
         return {
@@ -181,12 +181,13 @@ export function mapActions(
       case ActionTypes.Pure:
       case ActionTypes.Choose:
         return {
-          type: action.type,
+          // BaseActionObject types `type` as plain string; the case labels
+          // guarantee it is one of the plain built-in action types.
+          type: action.type as XJogStateChangePlainAction['type'],
         };
 
       default:
-        // return { type: XJogActionTypes.Unknown, actionType: action.type };
-        return { type: 'xjog.unknown', actionType: action.type };
+        return { type: XJogActionTypes.Unknown, actionType: action.type };
     }
   });
 }
