@@ -36,7 +36,6 @@
 		"@telia-oss/xjog-util": "workspace:^",
 		"node-pg-migrate": "^6.2.1",
 		"pg": "^8.21.0",
-		"pg-bind": "^1.0.1",
 		"pg-listen": "^1.7.0",
 		"rfc6902": "^5.0.1",
 		"xstate": "4.38.3"
