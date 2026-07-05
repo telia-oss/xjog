@@ -1,0 +1,69 @@
+name: Release
+
+# Version-PR release flow (Changesets):
+#   1. A push to `main` runs this workflow.
+#   2. If there are pending `.changeset/*.md`, changesets/action opens/updates a
+#      "chore: version packages" PR that bumps versions + writes changelogs.
+#   3. Merging that PR pushes to `main` again; now no changesets remain, so the
+#      action runs `pnpm release` (turbo build + `changeset publish`) → npm + tags.
+# Nothing is published on a push that has no pending changesets.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 24
+
+concurrency:
+  # Never cancel an in-flight run: a cancelled publish can leave npm and git
+  # tags inconsistent.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # push the version PR branch + release tags
+  pull-requests: write # open/update the "version packages" PR
+  id-token: write # reserved for npm provenance if enabled later
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # Changesets needs full history to diff tags and generate changelogs.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        # Version comes from the packageManager field in package.json.
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          registry-url: 'https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          # `version` updates package.json + changelogs on the version PR.
+          version: pnpm version-packages
+          # `publish` runs on pushes where no changesets remain (i.e. after the
+          # version PR is merged). `pnpm release` = turbo build + changeset publish.
+          publish: pnpm release
+          commit: 'chore: version packages'
+          title: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
