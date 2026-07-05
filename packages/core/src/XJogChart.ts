@@ -660,6 +660,60 @@ export class XJogChart<
   }
 
   /**
+   * Dev only: if a simulation rule matches the given event, short-circuits
+   * `send()` by skipping the event, simulating a failure, or delaying it.
+   *
+   * Returns a discriminated result: `{ intercepted: true, result }` means
+   * `send()` must return `result` immediately; `{ intercepted: false }` means
+   * `send()` should proceed as normal.
+   */
+  private async interceptWithSimulator(
+    event: Event<TEvent> | SCXML.Event<TEvent>,
+    scxmlEvent: SCXML.Event<TEvent>,
+    warn: (...args: Array<string | Record<string, unknown>>) => void,
+  ): Promise<{ intercepted: true; result: null } | { intercepted: false }> {
+    if (!this.xJog.simulator.isEnabled()) {
+      return { intercepted: false };
+    }
+
+    const eventName = scxmlEvent.name;
+    const getMatchingRule = (action: SimulatorAction) => {
+      const rule = this.xJog.simulator.matchesRule({
+        event: eventName,
+        action,
+      });
+      if (rule) {
+        warn({
+          message: `Matched simulation rule, will ${rule.action} event ${event}`,
+          eventName,
+          rule,
+        });
+        return rule;
+      }
+      return null;
+    };
+
+    if (getMatchingRule('skip')) {
+      return { intercepted: true, result: null };
+    }
+
+    if (getMatchingRule('fail')) {
+      throw new Error(`Simulated failure for event ${eventName}`);
+    }
+
+    const delayRule = getMatchingRule('delay');
+    if (delayRule) {
+      // Assume the value is in milliseconds and delay of the event
+      const delay = parseInt(delayRule.value ?? '0');
+      if (!Number.isNaN(delay)) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    return { intercepted: false };
+  }
+
+  /**
    * @param event XState event to send.
    * @param context Fields to patch the context. Either an object or an updater callback function.
    *   can be called. The callback is called with the context read from the database, and it must
@@ -688,41 +742,13 @@ export class XJogChart<
     return this.xJog.timeExecution('chart.send', async () => {
       const scxmlEvent = toSCXMLEvent(event);
 
-      // Dev only: If a simulation rule matches, ignore the event
-      if (this.xJog.simulator.isEnabled()) {
-        const eventName = scxmlEvent.name;
-        const getMatchingRule = (action: SimulatorAction) => {
-          const rule = this.xJog.simulator.matchesRule({
-            event: eventName,
-            action,
-          });
-          if (rule) {
-            warn({
-              message: `Matched simulation rule, will ${rule.action} event ${event}`,
-              eventName,
-              rule,
-            });
-            return rule;
-          }
-          return null;
-        };
-
-        if (getMatchingRule('skip')) {
-          return null;
-        }
-
-        if (getMatchingRule('fail')) {
-          throw new Error(`Simulated failure for event ${eventName}`);
-        }
-
-        const delayRule = getMatchingRule('delay');
-        if (delayRule) {
-          // Assume the value is in milliseconds and delay of the event
-          const delay = parseInt(delayRule.value ?? '0');
-          if (!Number.isNaN(delay)) {
-            await new Promise((resolve) => setTimeout(resolve, delay));
-          }
-        }
+      const simulatorInterception = await this.interceptWithSimulator(
+        event,
+        scxmlEvent,
+        warn,
+      );
+      if (simulatorInterception.intercepted) {
+        return simulatorInterception.result;
       }
 
       trace({ message: 'Sending event', eventName: scxmlEvent.name });
@@ -854,38 +880,58 @@ export class XJogChart<
         await releaseMutex();
       }
 
-      if (this.state.done && this.parentRef) {
-        // Best-effort: the transition is already committed and the mutex
-        // released by this point, so a throwing final-state `data` mapper (or
-        // resolveDoneData failing to locate the final node) must not reject
-        // send() — that would report a hard failure for a transition that
-        // actually succeeded. Log and skip the parent notification instead.
-        try {
-          trace({ message: 'Final state reached' });
-          const doneData = await this.resolveDoneData(this.state, cid);
-
-          trace({ message: 'Notifying the owner that chart is done' });
-
-          // TODO should probably defer this event
-          await this.xJog.sendEvent(
-            this.parentRef,
-            doneInvoke(this.id, doneData),
-            undefined,
-            undefined,
-            cid,
-          );
-        } catch (err) {
-          error('Failed to notify owner that chart is done', { err });
-        }
-      }
+      await this.notifyOwnerIfDone(trace, error, cid);
 
       trace({ message: 'Done' });
 
-      this.xJog.timeExecution('chart.send.auto-forward', () => {
-        this.xJog.activityManager.sendAutoForwardEvent(this.ref, scxmlEvent);
-      });
+      this.autoForwardToChildren(scxmlEvent);
 
       return this.state;
+    });
+  }
+
+  /**
+   * If the chart reached a final state and has an owning parent, resolve the
+   * done data and notify the parent via a done-invoke event.
+   *
+   * Best-effort: the transition is already committed and the mutex released
+   * by this point, so a throwing final-state `data` mapper (or
+   * resolveDoneData failing to locate the final node) must not reject
+   * send() — that would report a hard failure for a transition that actually
+   * succeeded. Log and skip the parent notification instead.
+   */
+  private async notifyOwnerIfDone(
+    trace: (...args: Array<string | Record<string, unknown>>) => void,
+    error: (...args: Array<string | Record<string, unknown>>) => void,
+    cid: string,
+  ): Promise<void> {
+    if (!this.state.done || !this.parentRef) {
+      return;
+    }
+
+    try {
+      trace({ message: 'Final state reached' });
+      const doneData = await this.resolveDoneData(this.state, cid);
+
+      trace({ message: 'Notifying the owner that chart is done' });
+
+      // TODO should probably defer this event
+      await this.xJog.sendEvent(
+        this.parentRef,
+        doneInvoke(this.id, doneData),
+        undefined,
+        undefined,
+        cid,
+      );
+    } catch (err) {
+      error('Failed to notify owner that chart is done', { err });
+    }
+  }
+
+  /** Forwards the sent event to activities configured for auto-forwarding. */
+  private autoForwardToChildren(scxmlEvent: SCXML.Event<TEvent>): void {
+    this.xJog.timeExecution('chart.send.auto-forward', () => {
+      this.xJog.activityManager.sendAutoForwardEvent(this.ref, scxmlEvent);
     });
   }
 
