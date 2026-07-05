@@ -1,6 +1,6 @@
 {
   "name": "@telia-oss/xjog-core-persistence",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "XJog chart abstract persistence",
   "engines": {
     "npm": ">=8.19.4",

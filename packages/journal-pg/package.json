@@ -1,6 +1,6 @@
 {
 	"name": "@telia-oss/xjog-journal-pg",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "XJog Postgres journaling persistence",
 	"engines": {
 		"npm": ">=8.19.4",

@@ -1,5 +1,88 @@
 # @telia-oss/xjog
 
+## 0.3.0
+
+### Minor Changes
+
+- de1d41e: Extract execution profiling into an `XJogProfiler` class and add
+  `profiling.enabled` (default true) to allow disabling per-call timing
+  overhead.
+
+### Patch Changes
+
+- 760310a: Correctness and cleanup batch across the workspace:
+  - core: `destroy()` now releases the chart mutex and finishes persistence
+    cleanup even when an update hook throws; update hooks that throw
+    synchronously are logged instead of aborting create/send/destroy (the three
+    call sites now share `XJog.runUpdateHooks`); done-data of a final state is
+    awaited before being sent to the parent chart (was a Promise object), and a
+    throwing final-state `data` mapper is now a logged best-effort skip rather
+    than rejecting an already-committed `send()`; `dropExternalId` awaits the
+    persistence call; `sendTo` activity-existence check no longer always passes
+    (`typeof` misuse); machine chart cache evicts down to the size limit (was
+    one entry per refresh), skips charts that are currently in use (avoiding a
+    self-eviction deadlock and head-of-line blocking under the cache mutex), and
+    releases the cache mutex on error paths; activity manager releases its
+    database mutex when persistence calls throw; forced chart adoption survives
+    transient database errors per chart (a failure on one chart no longer
+    strands already-claimed charts or surfaces an unhandled rejection);
+    after-action presence checks run concurrently.
+  - core-pg, core-pglite: removed non-transactional `destroyChart` overrides
+    (with a missing await) so the transactional base implementation applies;
+    removed commented-out dead code.
+  - journal-pglite: removed a broken `record()` override that wrote no journal
+    entries and failed on the second call per chart; `queryEntries` and
+    `queryFullStates` bind parameters correctly for every query-field
+    combination and use parameterized VALUES lists instead of hand-escaped SQL
+    literals; journal rows decode bytea columns as UTF-8; notification handler
+    failures are logged instead of crashing the process; fixed `pg_notify` cast
+    typo.
+  - journal-pg: notification-handler failures are logged instead of surfacing as
+    an unhandled rejection that crashes the process (matching journal-pglite).
+  - journal-persistence: `record()` rethrows the original error instead of a
+    logging closure.
+  - digest-pg: fixed malformed quoted identifier in digest SELECT list that
+    broke `readDigest`/`readByChart` against real Postgres.
+  - digest-pg, digest-pglite: `readByChart` keys results by digest key (was
+    machineId, collapsing all rows); fixed copy-pasted binding-key in the
+    `updated after` filter; digest filter binding names no longer embed the raw
+    digest key, which produced `:name` tokens the parameter binders truncated at
+    the first non-word character — filtering on keys containing hyphens, dots or
+    digits now works.
+  - digest-pglite: `queryDigests` now applies filter expressions and binds
+    offset/limit/machineId/chartId correctly.
+  - journal-writer, digest-writer: expose `uninstall()` so the update hook
+    installed by the constructor can be removed.
+  - util: `isActivityRef(null/undefined)` returns false instead of throwing;
+    added `createPositionalParameters`, a shared positional-placeholder binder
+    used by the PGlite query builders (was duplicated inline); removed the
+    unused (and broken) `BurstController`.
+
+- d89e73e: Rename shadowed local `PersistedDeferredEvent` variables to `deferredEvent` in `XJogDeferredEventManager` (no behavior change).
+- 9175538: Split `XJogChart.executeAction` into per-action-type private methods and remove dead commented-out code (no behavior change).
+- 6942537: Extract the simulator-interception block and the done-state/auto-forward tail of `XJogChart.send()` into private helpers (no behavior change); the mutex/transition core is untouched.
+- c61b5fc: util: collapse the 15 payload-less `XJogStateChange*Action` stub types into a
+  single `XJogStateChangePlainAction` (`{ type: XJogStateChangePlainActionType }`).
+  The serialized shape of journaled actions is unchanged; only type names were
+  removed. Code that imported one of the removed aliases (e.g.
+  `XJogStateChangeLogAction`) should switch to `XJogStateChangePlainAction`.
+
+  util: `XJogActionTypes` is now a real enum instead of `declare enum`, so
+  `XJogActionTypes.Unknown` exists at runtime (previously it was `undefined` and
+  comparing against it could never match — or crashed on member access).
+
+  core: `mapActions` uses `XJogActionTypes.Unknown` instead of a hardcoded
+  `'xjog.unknown'` literal (same runtime value) and drops its blanket
+  `@ts-expect-error`; the mapping is now fully type-checked.
+
+- 1a9a004: Collapse `XJogMachine` chart cache (object + key-Set) into a single insertion-ordered `Map` (no behavior change).
+- Updated dependencies [f8a7acc]
+- Updated dependencies [760310a]
+- Updated dependencies [6fda287]
+- Updated dependencies [c61b5fc]
+  - @telia-oss/xjog-core-persistence@0.3.0
+  - @telia-oss/xjog-util@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

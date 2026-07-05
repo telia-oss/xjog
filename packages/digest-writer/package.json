@@ -1,6 +1,6 @@
 {
 	"name": "@telia-oss/xjog-digest-writer",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "XJog chart digest writer",
 	"engines": {
 		"npm": ">=8.19.4",
