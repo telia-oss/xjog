@@ -217,10 +217,14 @@ covered by pglite suites, so only the driver layer needs real-Postgres tests.
       loop — reuse one working copy across the fold. Also replace the
       truthiness checks on `previousState`/`previousContext` with explicit
       `!== null` sentinels.
-- [ ] **C6. `XJogStateChange` action-type stubs**: 15 of 18 variants in
+- [x] **C6. `XJogStateChange` action-type stubs**: 15 of 18 variants in
       `packages/util/src/XJogStateChange.ts` are empty `// TODO ?` stubs.
       Needs a design decision (fill in payloads or collapse to a smaller
       union) — write a proposal in the PR description before coding.
+      Resolved: collapsed the payload-less stubs into a single
+      `XJogStateChangePlainAction`; `XJogActionTypes` became a real enum
+      (was `declare enum` with no runtime value); `mapActions` is now fully
+      type-checked with unit tests.
 
 ---
 

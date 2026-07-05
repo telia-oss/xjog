@@ -1,5 +1,8 @@
-import { createMachine, State } from 'xstate';
+import { XJogActionTypes } from '@telia-oss/xjog-util';
+import { createMachine, State, actions as xstateActions } from 'xstate';
+import { ActionTypes } from 'xstate/lib/types';
 import {
+  mapActions,
   resolveXJogCreateStateChange,
   resolveXJogDeleteStateChange,
   resolveXJogUpdateStateChange,
@@ -88,5 +91,91 @@ describe('resolveXJogUpdateStateChange', () => {
     expect(change.type).toBe('delete');
     expect(change.old?.context).not.toBe(state.context);
     expect((change.old?.context as Ctx).blob.nested).toEqual([3]);
+  });
+});
+
+describe('mapActions', () => {
+  it('maps send actions with sendId, eventType and target', () => {
+    const mapped = mapActions([
+      {
+        type: ActionTypes.Send,
+        id: 42,
+        _event: { name: 'PING' },
+        to: 'someActor',
+      },
+    ]);
+    expect(mapped).toEqual([
+      {
+        type: ActionTypes.Send,
+        sendId: 42,
+        eventType: 'PING',
+        to: 'someActor',
+      },
+    ]);
+  });
+
+  it('maps cancel actions with sendId', () => {
+    const mapped = mapActions([{ type: ActionTypes.Cancel, id: 'timer' }]);
+    expect(mapped).toEqual([{ type: ActionTypes.Cancel, sendId: 'timer' }]);
+  });
+
+  it('maps start and stop actions with activity id and type', () => {
+    const activity = { id: 'poller', type: 'poll' };
+    const mapped = mapActions([
+      { type: ActionTypes.Start, activity },
+      { type: ActionTypes.Stop, activity },
+    ]);
+    expect(mapped).toEqual([
+      { type: ActionTypes.Start, activityId: 'poller', activityType: 'poll' },
+      { type: ActionTypes.Stop, activityId: 'poller', activityType: 'poll' },
+    ]);
+  });
+
+  it('maps the remaining built-in action types to their type only', () => {
+    const plainTypes = [
+      ActionTypes.Raise,
+      ActionTypes.Assign,
+      ActionTypes.After,
+      ActionTypes.DoneState,
+      ActionTypes.DoneInvoke,
+      ActionTypes.Log,
+      ActionTypes.Init,
+      ActionTypes.Invoke,
+      ActionTypes.ErrorExecution,
+      ActionTypes.ErrorCommunication,
+      ActionTypes.ErrorPlatform,
+      ActionTypes.ErrorCustom,
+      ActionTypes.Update,
+      ActionTypes.Pure,
+      ActionTypes.Choose,
+    ];
+    const mapped = mapActions(
+      // Payload fields present on the resolved action objects must be dropped.
+      plainTypes.map((type) => ({ type, label: 'x', value: () => 'y' })),
+    );
+    expect(mapped).toEqual(plainTypes.map((type) => ({ type })));
+  });
+
+  it('maps custom action types to a runtime xjog.unknown marker', () => {
+    const mapped = mapActions([{ type: 'my.customAction' }]);
+    expect(XJogActionTypes.Unknown).toBe('xjog.unknown');
+    expect(mapped).toEqual([
+      { type: XJogActionTypes.Unknown, actionType: 'my.customAction' },
+    ]);
+  });
+
+  it('maps resolved actions from a real transition', () => {
+    const logMachine = createMachine({
+      predictableActionArguments: false,
+      id: 'log-test',
+      initial: 'a',
+      states: {
+        a: { on: { GO: { target: 'b', actions: xstateActions.log('hello') } } },
+        b: {},
+      },
+    });
+    const next = logMachine.transition(logMachine.initialState, 'GO');
+    const change = resolveXJogCreateStateChange(ref, null, next);
+    expect(change.new?.actions).toEqual([{ type: ActionTypes.Log }]);
   });
 });
