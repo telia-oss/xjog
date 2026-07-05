@@ -181,32 +181,38 @@ export class PostgresJournalPersistenceAdapter extends AbstractPostgresJournalPe
     // Received a notification of a new journal entry. Failures are logged
     // rather than thrown: an exception here would surface as an unhandled
     // rejection inside the notification dispatch and crash the process.
+    //
+    // The two reads are awaited sequentially rather than fired in parallel:
+    // both route through `runReadQuery` on the single shared read connection,
+    // and a `pg.Client` can only execute one query at a time. Overlapping them
+    // triggers pg's "client is already executing a query" deprecation (a hard
+    // throw in pg@9).
     journalSubscriber.notifications.on(channel, async () => {
-      this.queryEntries({
-        afterId: journalEntryIdPointer,
-        updatedAfterAndIncluding: startTime,
-        order: 'DESC',
-      })
-        .then((journalEntries) => {
-          if (journalEntries.length) {
-            yieldJournalEntries(journalEntries);
-          }
-        })
-        .catch((err) =>
-          this.error('Failed to read new journal entries', { err }),
-        );
+      try {
+        const journalEntries = await this.queryEntries({
+          afterId: journalEntryIdPointer,
+          updatedAfterAndIncluding: startTime,
+          order: 'DESC',
+        });
+        if (journalEntries.length) {
+          yieldJournalEntries(journalEntries);
+        }
+      } catch (err) {
+        this.error('Failed to read new journal entries', { err });
+      }
 
-      this.queryFullStates({
-        afterId: fullStateEntryIdPointer,
-        updatedAfterAndIncluding: startTime,
-        order: 'DESC',
-      })
-        .then((fullStateEntries) => {
-          if (fullStateEntries.length) {
-            yieldFullStateEntries(fullStateEntries);
-          }
-        })
-        .catch((err) => this.error('Failed to read new full states', { err }));
+      try {
+        const fullStateEntries = await this.queryFullStates({
+          afterId: fullStateEntryIdPointer,
+          updatedAfterAndIncluding: startTime,
+          order: 'DESC',
+        });
+        if (fullStateEntries.length) {
+          yieldFullStateEntries(fullStateEntries);
+        }
+      } catch (err) {
+        this.error('Failed to read new full states', { err });
+      }
     });
 
     journalSubscriber.events.on('error', (error) => {
