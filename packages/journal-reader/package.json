@@ -36,14 +36,14 @@
 		"@telia-oss/xjog": "workspace:^",
 		"@telia-oss/xjog-journal-persistence": "workspace:^",
 		"@telia-oss/xjog-util": "workspace:^",
-		"pg": "^8.21.0",
+		"pg": "^8.23.0",
 		"pg-bind": "^1.0.1",
 		"pg-listen": "^1.7.0",
 		"rfc6902": "^5.0.1",
 		"xstate": "4.38.3"
 	},
 	"devDependencies": {
-		"@types/pg": "8.20.0"
+		"@types/pg": "8.23.1"
 	},
 	"gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
 	"peerDependencies": {
