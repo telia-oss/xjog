@@ -84,3 +84,7 @@ PGlite adapter is used for in-process database testing (no external DB needed). 
 - PRs always target the `main` branch of the `telia-oss/xjog` repository (the
   `origin` remote) — e.g. `gh pr create --repo telia-oss/xjog --base main`
   (or just `gh pr create`, since `main` is the default branch).
+
+## Commit messages, PR bodies
+- Do not attribute an agent in commit messages or PR bodies.
+- No co-authored by "agent" lines.
