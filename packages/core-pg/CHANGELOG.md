@@ -1,5 +1,13 @@
 # @telia-oss/xjog-core-pg
 
+## 0.3.1
+
+### Patch Changes
+
+- 386ea59: Bump the `pg` dependency range to `^8.23.0` (from `^8.21.0`).
+- Updated dependencies [26847b7]
+  - @telia-oss/xjog-util@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
@@ -9,6 +17,7 @@
 ### Patch Changes
 
 - 760310a: Correctness and cleanup batch across the workspace:
+
   - core: `destroy()` now releases the chart mutex and finishes persistence
     cleanup even when an update hook throws; update hooks that throw
     synchronously are logged instead of aborting create/send/destroy (the three

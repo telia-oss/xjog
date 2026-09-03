@@ -1,10 +1,24 @@
 # @telia-oss/xjog-util
 
+## 0.3.1
+
+### Patch Changes
+
+- 26847b7: Accept `TEXT` columns in `decodeBytea`. Databases provisioned before the chart
+  and journal payload columns were declared `BYTEA` still hold them as `TEXT`, and
+  their initial migration is already recorded as applied, so nothing converts
+  them. `pg` returns those rows as strings, which `TextDecoder` rejects with
+  `ERR_INVALID_ARG_TYPE` — every chart read against such a database threw, where
+  the previous `row.state.toString()` call sites had tolerated both shapes.
+  Strings now pass through unchanged; `Buffer` and `Uint8Array` still decode as
+  UTF-8. `null` keeps throwing.
+
 ## 0.3.0
 
 ### Minor Changes
 
 - 760310a: Correctness and cleanup batch across the workspace:
+
   - core: `destroy()` now releases the chart mutex and finishes persistence
     cleanup even when an update hook throws; update hooks that throw
     synchronously are logged instead of aborting create/send/destroy (the three

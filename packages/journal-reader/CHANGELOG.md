@@ -1,5 +1,13 @@
 # @telia-oss/xjog-journal-reader
 
+## 0.2.2
+
+### Patch Changes
+
+- 386ea59: Bump the `pg` dependency range to `^8.23.0` (from `^8.21.0`).
+- Updated dependencies [26847b7]
+  - @telia-oss/xjog-util@0.3.1
+
 ## 0.2.1
 
 ### Patch Changes
