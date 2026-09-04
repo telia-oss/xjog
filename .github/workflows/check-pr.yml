@@ -67,6 +67,43 @@ jobs:
         # each suite fast. Local dev keeps full turbo concurrency.
         run: pnpm exec turbo run test --concurrency=1
 
+  changeset:
+    name: Changeset present
+    runs-on: ubuntu-latest
+    # Skip on the Changesets-generated version PR: it intentionally removes all
+    # changesets as it bumps versions, so the presence check would always fail.
+    if: github.head_ref != 'changeset-release/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # Full history so changeset can diff against the PR base branch.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        # Version comes from the packageManager field in package.json.
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Require a changeset
+        # Fails (exit 1) if the PR adds no changeset. Docs/CI-only PRs that
+        # need no release should include an empty changeset:
+        #   pnpm changeset --empty
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          pnpm exec changeset status --since="origin/$BASE_REF"
+
   pg-smoke:
     name: Postgres driver smoke tests
     runs-on: ubuntu-latest
