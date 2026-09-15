@@ -1,5 +1,12 @@
 # @telia-oss/xjog-digest-pg
 
+## 0.3.2
+
+### Patch Changes
+
+- 346cfc5: Resolve transitive `glob` (via node-pg-migrate) to >=11.1.0, fixing GHSA command injection in the glob CLI.
+- 16334c8: Bump node-pg-migrate from the deprecated 6.x line to ^7.9.1 (last CJS-compatible major; same runner API).
+
 ## 0.3.1
 
 ### Patch Changes
@@ -17,7 +24,6 @@
 ### Patch Changes
 
 - 760310a: Correctness and cleanup batch across the workspace:
-
   - core: `destroy()` now releases the chart mutex and finishes persistence
     cleanup even when an update hook throws; update hooks that throw
     synchronously are logged instead of aborting create/send/destroy (the three
