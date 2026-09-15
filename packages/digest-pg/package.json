@@ -35,7 +35,7 @@
 	"dependencies": {
 		"@telia-oss/xjog-digest-persistence": "workspace:^",
 		"@telia-oss/xjog-util": "workspace:^",
-		"node-pg-migrate": "^6.2.1",
+		"node-pg-migrate": "^7.9.1",
 		"pg": "^8.23.0",
 		"pg-listen": "^1.7.0",
 		"rfc6902": "^5.0.1"

@@ -26,7 +26,7 @@
     "@electric-sql/pglite": "^0.3.5",
     "@telia-oss/xjog-digest-persistence": "workspace:^",
     "@telia-oss/xjog-util": "workspace:^",
-    "node-pg-migrate": "^6.2.1"
+    "node-pg-migrate": "^7.9.1"
   },
   "publishConfig": {
     "registry": "https://jfrog.teliacompany.io/artifactory/api/npm/ecom-npm-local/",

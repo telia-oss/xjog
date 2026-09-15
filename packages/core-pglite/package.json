@@ -31,7 +31,7 @@
     "@electric-sql/pglite": "^0.3.5",
     "@telia-oss/xjog-core-persistence": "workspace:^",
     "@telia-oss/xjog-util": "workspace:^",
-    "node-pg-migrate": "^6.2.1",
+    "node-pg-migrate": "^7.9.1",
     "xstate": "4.38.3"
   },
   "gitHead": "296d7424a400009e863c25c455dd4b5d26139dcb",
