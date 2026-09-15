@@ -16,6 +16,7 @@ overrides:
   undici: '>=6.27.0'
   js-yaml: '>=4.2.0'
   read-yaml-file>js-yaml: ^3.14.1
+  glob@>=11.0.0 <11.1.0: ^11.1.0
 
 importers:
 
@@ -1943,8 +1944,8 @@ packages:
     deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
-  glob@11.0.3:
-    resolution: {integrity: sha512-2Nim7dha1KVkaiF4q6Dj+ngPPMdfvLJEOpZk/jKiUAkqKebpGAWQXAq9z1xu9HKu5lWfqw/FASuccEjyznjPaA==}
+  glob@11.1.0:
+    resolution: {integrity: sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==}
     engines: {node: 20 || >=22}
     deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
@@ -4733,7 +4734,7 @@ snapshots:
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
 
-  glob@11.0.3:
+  glob@11.1.0:
     dependencies:
       foreground-child: 3.3.1
       jackspeak: 4.2.3
@@ -5341,7 +5342,7 @@ snapshots:
 
   node-pg-migrate@7.9.1(@types/pg@8.23.1)(pg@8.23.0):
     dependencies:
-      glob: 11.0.3
+      glob: 11.1.0
       pg: 8.23.0
       yargs: 17.7.3
     optionalDependencies:
