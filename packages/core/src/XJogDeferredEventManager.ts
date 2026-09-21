@@ -19,6 +19,9 @@ import type { ResolvedXJogOptions } from './XJogOptions';
 export class XJogDeferredEventManager {
   private readonly options: ResolvedXJogOptions['deferredEvents'];
 
+  /** How soon to re-read after a deferred send fails, in milliseconds. */
+  private static readonly sendFailureRetryDelay = 1000;
+
   /**
    * Time of the next scheduled read
    */
@@ -321,47 +324,48 @@ export class XJogDeferredEventManager {
           }
         }
       } catch (error) {
-        if (ChartOwnershipLostError.is(error)) {
-          // The chart was adopted by another live instance while this event
-          // was in flight. Hand the event back (lock=NULL) so the owner's
-          // deferred loop can fire it — the reconciler only releases locks
-          // of DEAD instances, so keeping our lock would strand the timer
-          // forever. Not treated as delivered: the persisted row stays.
-          trace({
-            level: 'warning',
-            message: 'Chart ownership lost, releasing the event to its owner',
-            error,
-          });
+        // Not delivered. Hand the row back (lock=NULL) so a live instance's
+        // deferred loop picks it up again: the owner after an adoption
+        // handoff, or this same instance after a transient failure such as a
+        // chart mutex acquire timeout. Keeping the lock would strand the event
+        // until this instance dies and the reconciler releases it -- a chart
+        // waiting on a done.invoke never recovers.
+        const ownershipLost = ChartOwnershipLostError.is(error);
+        trace({
+          level: ownershipLost ? 'warning' : 'error',
+          message: 'Failed to send event, releasing it for retry',
+          error,
+        });
 
-          try {
-            await this.xJog.persistence.releaseDeferredEvent(
-              persistedDeferredEvent.ref,
-              persistedDeferredEvent.eventId,
-            );
-          } catch (releaseError) {
-            trace({
-              level: 'error',
-              message: 'Failed to release the deferred event',
-              error: releaseError,
-            });
-          }
-
-          const eventIndex = this.deferredEvents.findIndex(
-            (candidate) => candidate.id === persistedDeferredEvent.id,
+        try {
+          await this.xJog.persistence.releaseDeferredEvent(
+            persistedDeferredEvent.ref,
+            persistedDeferredEvent.eventId,
           );
-          if (eventIndex >= 0) {
-            this.deferredEvents.splice(eventIndex, 1);
-          }
-
-          this.deferredEventTimers.delete(persistedDeferredEvent.id);
-          return;
+        } catch (releaseError) {
+          trace({
+            level: 'error',
+            message: 'Failed to release the deferred event',
+            error: releaseError,
+          });
         }
 
-        // A rejected send (e.g. a chart mutex acquire timeout) must not become
-        // an unhandled rejection. Skip the cleanup: the persisted event stays
-        // in place, so the next instance retries it on boot.
-        trace({ level: 'error', message: 'Failed to send event', error });
+        const eventIndex = this.deferredEvents.findIndex(
+          (candidate) => candidate.id === persistedDeferredEvent.id,
+        );
+        if (eventIndex >= 0) {
+          this.deferredEvents.splice(eventIndex, 1);
+        }
+
         this.deferredEventTimers.delete(persistedDeferredEvent.id);
+
+        // A client is usually waiting on this chart, so do not leave the
+        // retry to the regular poll interval. The owner retries its own.
+        if (!ownershipLost) {
+          this.rescheduleNextReadNoLaterThan(
+            Date.now() + XJogDeferredEventManager.sendFailureRetryDelay,
+          );
+        }
         return;
       }
 
