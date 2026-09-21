@@ -1,5 +1,11 @@
 # @telia-oss/xjog
 
+## 0.3.1
+
+### Patch Changes
+
+- ab41634: Release a deferred event's lock when its send fails, so a live instance retries it on the next poll instead of stranding it until the instance restarts. A chart mutex acquire timeout while delivering a `done.invoke` event used to leave the chart parked in its invoking state for good.
+
 ## 0.3.0
 
 ### Minor Changes
