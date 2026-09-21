@@ -735,3 +735,55 @@ describe('XJogDeferredEventManager: ownership loss during deferred send', () => 
     }
   });
 });
+
+describe('XJogDeferredEventManager: send failure during deferred send', () => {
+  it('unlocks the event and retries it promptly instead of stranding it until restart', async () => {
+    const persistence = createInMemoryPersistence();
+    (persistence as any).releaseDeferredEvent = jest.fn(async () => {});
+
+    // interval is deliberately long: the retry must come from the failure
+    // path pulling the next read forward, not from the regular poll.
+    const [xJog, deferredEventManager] = mockXJogWithDeferredEventManager(
+      persistence,
+      { batchSize: 5, lookAhead: 20, interval: 60_000 },
+    );
+
+    const ref = { machineId: 'A', chartId: '1' };
+    (xJog.sendEvent as jest.Mock).mockRejectedValue(
+      new Error('Failed to acquire mutex for chart A/1 within 5000 ms'),
+    );
+
+    try {
+      await deferredEventManager.defer({
+        eventId: 'e-8',
+        ref,
+        event: toSCXMLEvent('due now'),
+        delay: 0,
+      });
+
+      // defer() at delay 0 schedules the read itself.
+      await waitFor(50);
+
+      expect(xJog.sendEvent).toHaveBeenCalledTimes(1);
+
+      // A mutex-timeout (or any other) send failure used to leave the row
+      // locked by this instance. takeUpcomingDeferredEvents only reads
+      // lock=NULL rows, so the event was dead until the pod restarted and
+      // the reconciler released it. Release it right away instead...
+      expect((persistence as any).releaseDeferredEvent).toHaveBeenCalledWith(
+        ref,
+        'e-8',
+      );
+      expect(persistence.removeDeferredEvent).not.toHaveBeenCalled();
+
+      // ...and pull the next read forward so the retry is not gated on the
+      // regular poll interval -- a client is usually waiting on this chart.
+      await waitFor(1500);
+      expect(xJog.sendEvent).toHaveBeenCalledTimes(2);
+    } finally {
+      // @ts-expect-error test-only shutdown flag
+      xJog.dying = true;
+      await deferredEventManager.releaseAll();
+    }
+  });
+});
