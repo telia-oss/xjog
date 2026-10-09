@@ -1,5 +1,11 @@
 # @telia-oss/xjog-journal-pg
 
+## 0.3.4
+
+### Patch Changes
+
+- a2f671a: Live journal and full-state streams emitted only the newest entry when several landed between notifications; the rest were silently skipped.
+
 ## 0.3.3
 
 ### Patch Changes
