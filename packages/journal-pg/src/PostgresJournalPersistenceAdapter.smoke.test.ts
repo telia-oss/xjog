@@ -125,4 +125,43 @@ describePg('PostgresJournalPersistenceAdapter (real Postgres)', () => {
     expect(entry.ref).toEqual(ref);
     expect(entry.event).toEqual({ type: 'smoke-event' });
   }, 15_000);
+
+  it('emits every entry of a burst, not only the newest', async () => {
+    const ref = { machineId: 'smoke-machine', chartId: 'burst-chart' };
+    const eventTypes = ['first', 'second', 'third', 'fourth'];
+
+    const received: string[] = [];
+    const subscription = adapter
+      .newJournalEntries({ ref })
+      .subscribe((entry) => received.push(String(entry.event?.type)));
+
+    try {
+      // Concurrent writes land several entries before the first
+      // notification's catch-up query runs.
+      await Promise.all(
+        eventTypes.map((type) =>
+          adapter.record(
+            'owner',
+            ref,
+            null,
+            { type },
+            null,
+            null,
+            { state: type },
+            null,
+            [],
+          ),
+        ),
+      );
+
+      const deadline = Date.now() + 5_000;
+      while (received.length < eventTypes.length && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    } finally {
+      subscription.unsubscribe();
+    }
+
+    expect([...received].sort()).toEqual([...eventTypes].sort());
+  }, 15_000);
 });
