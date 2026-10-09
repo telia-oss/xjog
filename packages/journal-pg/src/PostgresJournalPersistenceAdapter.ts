@@ -160,8 +160,8 @@ export class PostgresJournalPersistenceAdapter extends AbstractPostgresJournalPe
 
     const yieldJournalEntries = (journalEntries: JournalEntry[]) => {
       for (const journalEntry of journalEntries) {
-        if (journalEntry.id < journalEntryIdPointer) {
-          return;
+        if (journalEntry.id <= journalEntryIdPointer) {
+          continue;
         }
         journalEntryIdPointer = journalEntry.id;
         this.newJournalEntriesSubject.next(journalEntry);
@@ -170,8 +170,8 @@ export class PostgresJournalPersistenceAdapter extends AbstractPostgresJournalPe
 
     const yieldFullStateEntries = (fullStateEntries: FullStateEntry[]) => {
       for (const fullStateEntry of fullStateEntries) {
-        if (fullStateEntry.id < fullStateEntryIdPointer) {
-          return;
+        if (fullStateEntry.id <= fullStateEntryIdPointer) {
+          continue;
         }
         fullStateEntryIdPointer = fullStateEntry.id;
         this.newFullStateEntriesSubject.next(fullStateEntry);
@@ -192,7 +192,7 @@ export class PostgresJournalPersistenceAdapter extends AbstractPostgresJournalPe
         const journalEntries = await this.queryEntries({
           afterId: journalEntryIdPointer,
           updatedAfterAndIncluding: startTime,
-          order: 'DESC',
+          order: 'ASC',
         });
         if (journalEntries.length) {
           yieldJournalEntries(journalEntries);
@@ -205,7 +205,7 @@ export class PostgresJournalPersistenceAdapter extends AbstractPostgresJournalPe
         const fullStateEntries = await this.queryFullStates({
           afterId: fullStateEntryIdPointer,
           updatedAfterAndIncluding: startTime,
-          order: 'DESC',
+          order: 'ASC',
         });
         if (fullStateEntries.length) {
           yieldFullStateEntries(fullStateEntries);
